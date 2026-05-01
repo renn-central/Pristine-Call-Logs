@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pristine Call Logs KPI Tracker</title>
+
+  <!-- Excel/CSV reader -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase compat scripts: more reliable for a single GitHub Pages HTML file -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #d9e2ec;
+      --navy: #22324a;
+      --blue: #2563eb;
+      --green: #5ca85a;
+      --red: #e6645e;
+      --yellow: #f6c945;
+      --soft-blue: #d9ecff;
+      --cream: #fff8e5;
+      --shadow: 0 14px 35px rgba(31, 41, 55, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #eef4ff 0%, #f8fafc 50%, #fff8e7 100%);
+      color: var(--ink);
+    }
+
+    header {
+      padding: 32px 24px 20px;
+      background: var(--navy);
+      color: white;
+    }
+
+    .header-inner, main {
+      max-width: 1220px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: #dbe7ff;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    main { padding: 24px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      backdrop-filter: blur(8px);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input, select, button {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 12px 13px;
+      font: inherit;
+      background: white;
+      color: var(--ink);
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: var(--blue);
+      color: white;
+      font-weight: 900;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.secondary { background: #475569; }
+    button.success { background: #15803d; }
+    button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .metric {
+      background: rgba(255,255,255,.94);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric .value {
+      font-size: 28px;
+      font-weight: 950;
+      margin-top: 4px;
+      letter-spacing: -0.03em;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 820px;
+      background: white;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    th:last-child, td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    th {
+      background: #d7cdee;
+      color: #111827;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .agent-head { background: var(--yellow); }
+    .agent-name {
+      font-weight: 950;
+      text-align: left;
+      background: var(--cream);
+    }
+
+    .status-pass, .eom-pass {
+      background: var(--green);
+      color: #061b06;
+      font-weight: 950;
+    }
+
+    .status-fail, .eom-fail {
+      background: var(--red);
+      color: #220303;
+      font-weight: 950;
+    }
+
+    .status-na {
+      background: var(--soft-blue);
+      font-weight: 950;
+    }
+
+    .role-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 950;
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .role-pill.supervisor { background: #ecfeff; color: #155e75; }
+    .role-pill.prod { background: #fef3c7; color: #92400e; }
+
+    .status-select {
+      min-width: 150px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-weight: 800;
+    }
+
+    .notice {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      font-size: 14px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .notice.show { display: block; }
+    .notice.error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .notice.success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .actions button { width: auto; min-width: 160px; }
+
+    .footer-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .controls, .summary-row { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      header, main { padding-left: 14px; padding-right: 14px; }
+      .controls, .summary-row { grid-template-columns: 1fr; }
+      .actions button { width: 100%; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>Pristine Call Logs KPI Tracker</h1>
+      <p class="subtitle">Upload daily Zoom call logs, calculate agent call time and call count, update attendance status, save daily reports, and track running end-of-month KPI averages.</p>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div class="section-title">
+        <h2>Upload Daily Call Log</h2>
+        <span class="hint">KPI target: 1:30:00 total call time</span>
+      </div>
+
+      <div class="controls">
+        <div>
+          <label for="reportDate">Report Date</label>
+          <input id="reportDate" type="date" />
+        </div>
+        <div>
+          <label for="fileInput">Excel or CSV File</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+        </div>
+        <div>
+          <label for="viewMonth">EOM Month</label>
+          <input id="viewMonth" type="month" />
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="processBtn">Process File</button>
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top: 14px;">
+        <button id="saveBtn" class="success" disabled>Save Daily Report</button>
+        <button id="loadBtn" class="secondary">Load Selected Date</button>
+        <button id="refreshEomBtn" class="secondary">Refresh EOM</button>
+        <button id="exportBtn" class="secondary" disabled>Export Daily CSV</button>
+      </div>
+
+      <div id="notice" class="notice"></div>
+      <p class="footer-note">Special statuses — On Leave, Absent, No Work Day, and Exempted Day — are excluded from EOM averages.</p>
+    </section>
+
+    <section class="summary-row">
+      <div class="metric"><div class="label">Daily Passing</div><div id="dailyPassing" class="value">0</div></div>
+      <div class="metric"><div class="label">Daily Failed</div><div id="dailyFailed" class="value">0</div></div>
+      <div class="metric"><div class="label">Total Calls</div><div id="totalCalls" class="value">0</div></div>
+      <div class="metric"><div class="label">Total Call Time</div><div id="totalTime" class="value">0:00:00</div></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Daily KPI</h2>
+        <span id="dailyDateLabel" class="hint">No file processed yet</span>
+      </div>
+      <div class="table-wrap">
+        <table id="dailyTable"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>End-of-Month Running Stats</h2>
+        <span id="eomLabel" class="hint">Select a month and refresh</span>
+      </div>
+      <div class="table-wrap">
+        <table id="eomTable"></table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyC9qWhYIZ61cx8ug9Awb-j1in8UwRpSdUc",
+      authDomain: "pristine-call-logs.firebaseapp.com",
+      projectId: "pristine-call-logs",
+      storageBucket: "pristine-call-logs.firebasestorage.app",
+      messagingSenderId: "128525155487",
+      appId: "1:128525155487:web:fbc6a3aaa49ca2b39f76aa"
+    };
+
+    let db = null;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch (error) {
+      console.error("Firebase init error:", error);
+    }
+
+    const KPI_SECONDS = 90 * 60;
+    const EXCLUDED_STATUSES = ["On Leave", "Absent", "No Work Day", "Exempted Day"];
+    const STATUS_OPTIONS = ["Working", ...EXCLUDED_STATUSES];
+
+    const PEOPLE = [
+      { name: "Kim Anderson", extensions: ["813"], role: "Agent" },
+      { name: "Shey Morgan", extensions: ["815", "824"], role: "Agent" },
+      { name: "Ivy Taylor", extensions: ["810"], role: "Agent" },
+      { name: "Kris Johnson", extensions: ["805"], role: "Agent" },
+      { name: "Amy Jones", extensions: ["814"], role: "Agent" },
+      { name: "Margaret Brown", extensions: ["818"], role: "Agent" },
+      { name: "Anita Watson", extensions: ["828"], role: "Agent" },
+      { name: "Wendy Keller", extensions: ["825"], role: "Agent" },
+      { name: "Lauren", extensions: ["809", "806"], role: "Supervisor" },
+      { name: "Aisiah", extensions: ["803"], role: "Supervisor" },
+      { name: "Patrick", extensions: ["807"], role: "Prod Team" }
+    ];
+
+    const extensionToPerson = {};
+    PEOPLE.forEach(person => person.extensions.forEach(ext => extensionToPerson[ext] = person.name));
+
+    let currentDailyRows = buildEmptyDailyRows();
+
+    const $ = id => document.getElementById(id);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const today = new Date();
+      $("reportDate").valueAsDate = today;
+      $("viewMonth").value = today.toISOString().slice(0, 7);
+
+      renderDailyTable(currentDailyRows);
+      renderEomTable([]);
+
+      $("processBtn").addEventListener("click", processFile);
+      $("saveBtn").addEventListener("click", saveDailyReport);
+      $("loadBtn").addEventListener("click", loadDailyReport);
+      $("refreshEomBtn").addEventListener("click", refreshEom);
+      $("exportBtn").addEventListener("click", exportDailyCsv);
+
+      if (!db) showNotice("Firebase did not initialize. The upload table will still work, but save/load will not work until Firebase is fixed.", "error");
+    });
+
+    function buildEmptyDailyRows() {
+      return PEOPLE.map(person => ({ ...person, callSeconds: 0, totalCalls: 0, status: "Working", kpi: "Failed" }));
+    }
+
+    async function processFile() {
+      const file = $("fileInput").files[0];
+      const reportDate = $("reportDate").value;
+      if (!reportDate) return showNotice("Please select a report date.", "error");
+      if (!file) return showNotice("Please choose an Excel or CSV file first.", "error");
+
+      try {
+        const rows = await readWorkbookRows(file);
+        currentDailyRows = calculateDailyRows(rows);
+        renderDailyTable(currentDailyRows);
+        updateDailySummary(currentDailyRows);
+        $("dailyDateLabel").textContent = formatDateLabel(reportDate);
+        $("saveBtn").disabled = false;
+        $("exportBtn").disabled = false;
+        showNotice(`Processed ${rows.length} call log rows. Review statuses, then save the report.`, "success");
+      } catch (error) {
+        console.error(error);
+        showNotice(error.message || "Could not process this file.", "error");
+      }
+    }
+
+    function readWorkbookRows(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = event => {
+          try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: "array", cellDates: true });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            resolve(json);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error("Unable to read the selected file."));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function calculateDailyRows(rawRows) {
+      const totals = {};
+      PEOPLE.forEach(person => totals[person.name] = { seconds: 0, calls: 0 });
+
+      rawRows.forEach(row => {
+        const extension = getField(row, ["From Extension", "From Ext.", "From Ext", "Extension", "From"]);
+        const cleanedExtension = String(extension || "").trim().replace(/\.0$/, "");
+        const personName = extensionToPerson[cleanedExtension];
+        if (!personName) return;
+
+        const duration = getField(row, ["Duration", "Call Duration", "Talk Time", "Total Call Time"]);
+        const seconds = parseDurationToSeconds(duration);
+        totals[personName].calls += 1;
+        totals[personName].seconds += seconds;
+      });
+
+      return PEOPLE.map(person => {
+        const total = totals[person.name];
+        return { ...person, callSeconds: total.seconds, totalCalls: total.calls, status: "Working", kpi: total.seconds >= KPI_SECONDS ? "Pass" : "Failed" };
+      });
+    }
+
+    function getField(row, possibleNames) {
+      const normalized = {};
+      Object.keys(row).forEach(key => normalized[normalizeHeader(key)] = row[key]);
+      for (const name of possibleNames) {
+        const value = normalized[normalizeHeader(name)];
+        if (value !== undefined) return value;
+      }
+      return "";
+    }
+
+    function normalizeHeader(value) {
+      return String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+
+    function parseDurationToSeconds(value) {
+      if (value === null || value === undefined || value === "" || value === " --" || value === "--") return 0;
+
+      if (typeof value === "number") {
+        return value < 1 ? Math.round(value * 24 * 60 * 60) : Math.round(value);
+      }
+
+      if (value instanceof Date) {
+        return value.getHours() * 3600 + value.getMinutes() * 60 + value.getSeconds();
+      }
+
+      const text = String(value).trim();
+      if (!text || text === "--") return 0;
+
+      const parts = text.split(":").map(Number);
+      if (parts.some(Number.isNaN)) return 0;
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return Number(text) || 0;
+    }
+
+    function renderDailyTable(rows) {
+      const table = $("dailyTable");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="agent-head">Name</th>
+            <th>Role</th>
+            <th>Extensions</th>
+            <th>Status</th>
+            <th>Call Time</th>
+            <th>Total Calls</th>
+            <th>Daily KPI</th>
+          </tr>
+        </thead>
+        <tbody>${rows.map((row, index) => dailyRowHtml(row, index)).join("")}</tbody>
+      `;
+
+      table.querySelectorAll("select[data-index]").forEach(select => {
+        select.addEventListener("change", event => {
+          const index = Number(event.target.dataset.index);
+          currentDailyRows[index].status = event.target.value;
+          currentDailyRows[index].kpi = getDisplayKpi(currentDailyRows[index]);
+          renderDailyTable(currentDailyRows);
+          updateDailySummary(currentDailyRows);
+        });
+      });
+
+      updateDailySummary(rows);
+    }
+
+    function dailyRowHtml(row, index) {
+      const displayKpi = getDisplayKpi(row);
+      const statusClass = displayKpi === "Pass" ? "status-pass" : displayKpi === "Failed" ? "status-fail" : "status-na";
+      const roleClass = row.role === "Supervisor" ? "supervisor" : row.role === "Prod Team" ? "prod" : "";
+      return `
+        <tr>
+          <td class="agent-name">${escapeHtml(row.name)}</td>
+          <td><span class="role-pill ${roleClass}">${escapeHtml(row.role)}</span></td>
+          <td>${row.extensions.join(" / ")}</td>
+          <td>${statusDropdown(row.status, index)}</td>
+          <td><strong>${secondsToHms(row.callSeconds)}</strong></td>
+          <td><strong>${row.totalCalls}</strong></td>
+          <td class="${statusClass}">${displayKpi}</td>
+        </tr>
+      `;
+    }
+
+    function statusDropdown(value, index) {
+      return `<select class="status-select" data-index="${index}">
+        ${STATUS_OPTIONS.map(status => `<option value="${status}" ${status === value ? "selected" : ""}>${status}</option>`).join("")}
+      </select>`;
+    }
+
+    function getDisplayKpi(row) {
+      if (EXCLUDED_STATUSES.includes(row.status)) return "N/A";
+      return row.callSeconds >= KPI_SECONDS ? "Pass" : "Failed";
+    }
+
+    function updateDailySummary(rows) {
+      const workingRows = rows.filter(row => !EXCLUDED_STATUSES.includes(row.status));
+      $("dailyPassing").textContent = workingRows.filter(row => row.callSeconds >= KPI_SECONDS).length;
+      $("dailyFailed").textContent = workingRows.filter(row => row.callSeconds < KPI_SECONDS).length;
+      $("totalCalls").textContent = rows.reduce((sum, row) => sum + row.totalCalls, 0);
+      $("totalTime").textContent = secondsToHms(rows.reduce((sum, row) => sum + row.callSeconds, 0));
+    }
+
+    async function saveDailyReport() {
+      if (!db) return showNotice("Firebase is not available. Save failed.", "error");
+
+      const reportDate = $("reportDate").value;
+      if (!reportDate) return showNotice("Please select a report date before saving.", "error");
+
+      const dailyReport = {
+        date: reportDate,
+        month: reportDate.slice(0, 7),
+        updatedAt: new Date().toISOString(),
+        rows: currentDailyRows.map(row => ({
+          name: row.name,
+          role: row.role,
+          extensions: row.extensions,
+          status: row.status,
+          callSeconds: row.callSeconds,
+          totalCalls: row.totalCalls,
+          kpi: getDisplayKpi(row)
+        }))
+      };
+
+      try {
+        await db.collection("dailyReports").doc(reportDate).set(dailyReport);
+        showNotice("Daily report saved to Firebase.", "success");
+        await refreshEom();
+      } catch (error) {
+        console.error(error);
+        showNotice("Firebase save failed. Check your Firestore Database rules.", "error");
+      }
+    }
+
+    async function loadDailyReport() {
+      if (!db) return showNotice("Firebase is not available. Load failed.", "error");
+
+      const reportDate = $("reportDate").value;
+      if (!reportDate) return showNotice("Please select a report date to load.", "error");
+
+      try {
+        const snapshot = await db.collection("dailyReports").doc(reportDate).get();
+        if (!snapshot.exists) return showNotice("No saved report found for that date.", "error");
+
+        const data = snapshot.data();
+        currentDailyRows = PEOPLE.map(person => {
+          const saved = (data.rows || []).find(row => row.name === person.name);
+          return saved ? { ...person, ...saved } : { ...person, callSeconds: 0, totalCalls: 0, status: "Working", kpi: "Failed" };
+        });
+
+        renderDailyTable(currentDailyRows);
+        $("dailyDateLabel").textContent = formatDateLabel(reportDate);
+        $("saveBtn").disabled = false;
+        $("exportBtn").disabled = false;
+        showNotice("Saved report loaded.", "success");
+      } catch (error) {
+        console.error(error);
+        showNotice("Could not load the selected report from Firebase.", "error");
+      }
+    }
+
+    async function refreshEom() {
+      if (!db) return showNotice("Firebase is not available. EOM refresh failed.", "error");
+
+      const selectedMonth = $("viewMonth").value;
+      if (!selectedMonth) return showNotice("Please select an EOM month.", "error");
+
+      try {
+        const snapshot = await db.collection("dailyReports").where("month", "==", selectedMonth).get();
+        const reports = [];
+        snapshot.forEach(doc => reports.push(doc.data()));
+
+        const eomRows = calculateEomRows(reports);
+        renderEomTable(eomRows);
+        $("eomLabel").textContent = `${selectedMonth} · ${reports.length} saved day(s)`;
+      } catch (error) {
+        console.error(error);
+        showNotice("Could not refresh EOM stats from Firebase.", "error");
+      }
+    }
+
+    function calculateEomRows(reports) {
+      return PEOPLE.map(person => {
+        let eligibleDays = 0;
+        let seconds = 0;
+        let calls = 0;
+
+        reports.forEach(report => {
+          const row = (report.rows || []).find(item => item.name === person.name);
+          if (!row || EXCLUDED_STATUSES.includes(row.status)) return;
+          eligibleDays += 1;
+          seconds += Number(row.callSeconds || 0);
+          calls += Number(row.totalCalls || 0);
+        });
+
+        const avgSeconds = eligibleDays ? Math.round(seconds / eligibleDays) : 0;
+        const avgCalls = eligibleDays ? Math.round((calls / eligibleDays) * 10) / 10 : 0;
+        const kpi = eligibleDays === 0 ? "N/A" : avgSeconds >= KPI_SECONDS ? "Pass" : "Failed";
+
+        return { ...person, eligibleDays, avgSeconds, avgCalls, kpi };
+      });
+    }
+
+    function renderEomTable(rows) {
+      const table = $("eomTable");
+      const displayRows = rows.length ? rows : PEOPLE.map(person => ({ ...person, eligibleDays: 0, avgSeconds: 0, avgCalls: 0, kpi: "N/A" }));
+
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="agent-head">Name</th>
+            <th>Role</th>
+            <th>Extensions</th>
+            <th>Eligible Days</th>
+            <th>Average Daily Call Time</th>
+            <th>Average Daily Calls</th>
+            <th>EOM KPI</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${displayRows.map(row => {
+            const statusClass = row.kpi === "Pass" ? "eom-pass" : row.kpi === "Failed" ? "eom-fail" : "status-na";
+            const roleClass = row.role === "Supervisor" ? "supervisor" : row.role === "Prod Team" ? "prod" : "";
+            return `
+              <tr>
+                <td class="agent-name">${escapeHtml(row.name)}</td>
+                <td><span class="role-pill ${roleClass}">${escapeHtml(row.role)}</span></td>
+                <td>${row.extensions.join(" / ")}</td>
+                <td><strong>${row.eligibleDays}</strong></td>
+                <td><strong>${secondsToHms(row.avgSeconds)}</strong></td>
+                <td><strong>${row.avgCalls}</strong></td>
+                <td class="${statusClass}">${row.kpi}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      `;
+    }
+
+    function exportDailyCsv() {
+      const reportDate = $("reportDate").value || "daily-report";
+      const headers = ["Date", "Name", "Role", "Extensions", "Status", "Call Time", "Call Seconds", "Total Calls", "Daily KPI"];
+      const lines = [headers.join(",")];
+
+      currentDailyRows.forEach(row => {
+        const values = [
+          reportDate,
+          row.name,
+          row.role,
+          row.extensions.join(" / "),
+          row.status,
+          secondsToHms(row.callSeconds),
+          row.callSeconds,
+          row.totalCalls,
+          getDisplayKpi(row)
+        ].map(csvEscape);
+        lines.push(values.join(","));
+      });
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `call-log-kpi-${reportDate}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function secondsToHms(totalSeconds) {
+      const seconds = Math.max(0, Math.round(Number(totalSeconds || 0)));
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function formatDateLabel(value) {
+      const date = new Date(`${value}T00:00:00`);
+      return date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    }
+
+    function showNotice(message, type = "info") {
+      const notice = $("notice");
+      notice.textContent = message;
+      notice.className = `notice show ${type}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#039;",
+        '"': "&quot;"
+      }[char]));
+    }
+
+    function csvEscape(value) {
+      const text = String(value ?? "");
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+  </script>
+</body>
+</html>
