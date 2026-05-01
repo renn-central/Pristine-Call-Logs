@@ -400,21 +400,61 @@
 
     <section class="card">
       <div class="section-title">
-        <h2>Daily KPI</h2>
+        <h2>Daily KPI — Agents</h2>
         <span id="dailyDateLabel" class="hint">No file processed yet</span>
       </div>
       <div class="table-wrap">
-        <table id="dailyTable"></table>
+        <table id="dailyAgentTable"></table>
       </div>
     </section>
 
     <section class="card">
       <div class="section-title">
-        <h2>End-of-Month Running Stats</h2>
+        <h2>Daily KPI — Supervisors</h2>
+        <span class="hint">Tracked separately from agents</span>
+      </div>
+      <div class="table-wrap">
+        <table id="dailySupervisorTable"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Daily KPI — Prod Team</h2>
+        <span class="hint">Patrick passes with 350+ calls</span>
+      </div>
+      <div class="table-wrap">
+        <table id="dailyProdTable"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>End-of-Month Running Stats — Agents</h2>
         <span id="eomLabel" class="hint">Select a month and refresh</span>
       </div>
       <div class="table-wrap">
-        <table id="eomTable"></table>
+        <table id="eomAgentTable"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>End-of-Month Running Stats — Supervisors</h2>
+        <span class="hint">Tracked separately from agents</span>
+      </div>
+      <div class="table-wrap">
+        <table id="eomSupervisorTable"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>End-of-Month Running Stats — Prod Team</h2>
+        <span class="hint">Patrick passes with 350+ average daily calls</span>
+      </div>
+      <div class="table-wrap">
+        <table id="eomProdTable"></table>
       </div>
     </section>
     </div>
@@ -476,6 +516,7 @@
     const KPI_SECONDS = 90 * 60;
     const EXCLUDED_STATUSES = ["On Leave", "Absent", "No Work Day", "Exempted Day"];
     const STATUS_OPTIONS = ["Working", ...EXCLUDED_STATUSES];
+    const SALES_OPTIONS = ["", "Yes", "No"];
 
     const PEOPLE = [
       { name: "Kim Anderson", extensions: ["813"], role: "Agent" },
@@ -523,7 +564,7 @@
     });
 
     function buildEmptyDailyRows() {
-      return PEOPLE.map(person => ({ ...person, callSeconds: 0, totalCalls: 0, status: "Working", kpi: "Failed" }));
+      return PEOPLE.map(person => ({ ...person, callSeconds: 0, totalCalls: 0, status: "Working", saleMade: "", kpi: "Failed" }));
     }
 
     function displayName(personOrRow) {
@@ -606,7 +647,7 @@
 
       return PEOPLE.map(person => {
         const total = totals[person.name];
-        const tempRow = { ...person, callSeconds: total.seconds, totalCalls: total.calls, status: "Working" };
+        const tempRow = { ...person, callSeconds: total.seconds, totalCalls: total.calls, status: "Working", saleMade: "" };
         return { ...tempRow, kpi: passesKpi(tempRow) ? "Pass" : "Failed" };
       });
     }
@@ -647,7 +688,18 @@
     }
 
     function renderDailyTable(rows) {
-      const table = $("dailyTable");
+      renderDailyRoleTable("dailyAgentTable", rows, "Agent");
+      renderDailyRoleTable("dailySupervisorTable", rows, "Supervisor");
+      renderDailyRoleTable("dailyProdTable", rows, "Prod Team");
+      updateDailySummary(rows);
+    }
+
+    function renderDailyRoleTable(tableId, rows, role) {
+      const table = $(tableId);
+      const roleRows = rows
+        .map((row, index) => ({ row, index }))
+        .filter(item => item.row.role === role);
+
       table.innerHTML = `
         <thead>
           <tr>
@@ -657,14 +709,15 @@
             <th>Call Time</th>
             <th>Total Calls</th>
             <th>Daily KPI</th>
+            ${role === "Agent" || role === "Supervisor" ? "<th>Sale?</th>" : ""}
           </tr>
         </thead>
-        <tbody>${rows.map((row, index) => dailyRowHtml(row, index)).join("")}</tbody>
+        <tbody>${roleRows.map(item => dailyRowHtml(item.row, item.index)).join("")}</tbody>
       `;
 
-      table.querySelectorAll("select[data-index]").forEach(select => {
+      table.querySelectorAll("select[data-status-index]").forEach(select => {
         select.addEventListener("change", event => {
-          const index = Number(event.target.dataset.index);
+          const index = Number(event.target.dataset.statusIndex);
           currentDailyRows[index].status = event.target.value;
           currentDailyRows[index].kpi = getDisplayKpi(currentDailyRows[index]);
           renderDailyTable(currentDailyRows);
@@ -672,7 +725,12 @@
         });
       });
 
-      updateDailySummary(rows);
+      table.querySelectorAll("select[data-sales-index]").forEach(select => {
+        select.addEventListener("change", event => {
+          const index = Number(event.target.dataset.salesIndex);
+          currentDailyRows[index].saleMade = event.target.value;
+        });
+      });
     }
 
     function dailyRowHtml(row, index) {
@@ -686,14 +744,21 @@
           <td>${statusDropdown(row.status, index)}</td>
           <td><strong>${secondsToHms(row.callSeconds)}</strong></td>
           <td><strong>${row.totalCalls}</strong></td>
+          <td>${getKpiRuleText(row)}</td>
           <td class="${statusClass}">${displayKpi}</td>
         </tr>
       `;
     }
 
     function statusDropdown(value, index) {
-      return `<select class="status-select" data-index="${index}">
+      return `<select class="status-select" data-status-index="${index}">
         ${STATUS_OPTIONS.map(status => `<option value="${status}" ${status === value ? "selected" : ""}>${status}</option>`).join("")}
+      </select>`;
+    }
+
+    function salesDropdown(value, index) {
+      return `<select class="status-select" data-sales-index="${index}">
+        ${SALES_OPTIONS.map(option => `<option value="${option}" ${option === value ? "selected" : ""}>${option || "Select"}</option>`).join("")}
       </select>`;
     }
 
@@ -725,6 +790,7 @@
           role: row.role,
           extensions: row.extensions,
           status: row.status,
+          saleMade: row.saleMade || "",
           callSeconds: row.callSeconds,
           totalCalls: row.totalCalls,
           kpi: getDisplayKpi(row)
@@ -754,7 +820,7 @@
         const data = snapshot.data();
         currentDailyRows = PEOPLE.map(person => {
           const saved = (data.rows || []).find(row => row.name === person.name);
-          return saved ? { ...person, ...saved } : { ...person, callSeconds: 0, totalCalls: 0, status: "Working", kpi: "Failed" };
+          return saved ? { ...person, saleMade: "", ...saved } : { ...person, callSeconds: 0, totalCalls: 0, status: "Working", saleMade: "", kpi: "Failed" };
         });
 
         renderDailyTable(currentDailyRows);
@@ -811,8 +877,15 @@
     }
 
     function renderEomTable(rows) {
-      const table = $("eomTable");
-      const displayRows = rows.length ? rows : PEOPLE.map(person => ({ ...person, eligibleDays: 0, avgSeconds: 0, avgCalls: 0, kpi: "N/A" }));
+      renderEomRoleTable("eomAgentTable", rows, "Agent");
+      renderEomRoleTable("eomSupervisorTable", rows, "Supervisor");
+      renderEomRoleTable("eomProdTable", rows, "Prod Team");
+    }
+
+    function renderEomRoleTable(tableId, rows, role) {
+      const table = $(tableId);
+      const displayRows = (rows.length ? rows : PEOPLE.map(person => ({ ...person, eligibleDays: 0, avgSeconds: 0, avgCalls: 0, kpi: "N/A" })))
+        .filter(row => row.role === role);
 
       table.innerHTML = `
         <thead>
@@ -844,153 +917,9 @@
       `;
     }
 
-
-    async function loadHistory() {
-      if (!db) return showHistoryNotice("Firebase is not available. History load failed.", "error");
-
-      const selectedMonth = $("historyMonth").value;
-      if (!selectedMonth) return showHistoryNotice("Please select a history month.", "error");
-
-      try {
-        const snapshot = await db.collection("dailyReports").where("month", "==", selectedMonth).get();
-        const reports = [];
-        snapshot.forEach(doc => reports.push(doc.data()));
-        reports.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-        currentHistoryReports = reports;
-        renderHistoryTable(reports);
-        $("historyLabel").textContent = `${selectedMonth} · ${reports.length} saved day(s)`;
-        $("exportHistoryBtn").disabled = reports.length === 0;
-        showHistoryNotice(reports.length ? `Loaded ${reports.length} saved day(s).` : "No saved reports found for this month.", reports.length ? "success" : "error");
-      } catch (error) {
-        console.error(error);
-        showHistoryNotice("Could not load history from Firebase.", "error");
-      }
-    }
-
-    function renderHistoryTable(reports) {
-      const table = $("historyTable");
-
-      if (!reports.length) {
-        table.innerHTML = `
-          <thead>
-            <tr>
-              <th class="agent-head">Agent</th>
-              <th>Status</th>
-              <th>Call Time</th>
-              <th>Total Calls</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${PEOPLE.map(person => `
-              <tr>
-                <td class="agent-name">${escapeHtml(displayName(person))}</td>
-                <td class="status-na">N/A</td>
-                <td><strong>0:00:00</strong></td>
-                <td><strong>0</strong></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        `;
-        return;
-      }
-
-      const monthTitle = new Date(`${reports[0].month || reports[0].date.slice(0, 7)}-01T00:00:00`)
-        .toLocaleDateString(undefined, { month: "long", year: "numeric" });
-
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th class="agent-head" rowspan="3">Agent</th>
-            <th class="month-title" colspan="${reports.length * 3}">Daily Performance — ${monthTitle}</th>
-          </tr>
-          <tr>
-            ${reports.map(report => `<th class="day-title" colspan="3">${formatShortDate(report.date)}</th>`).join("")}
-          </tr>
-          <tr>
-            ${reports.map(() => `
-              <th class="subhead day-start">Status</th>
-              <th class="subhead">Call Time</th>
-              <th class="subhead">Total Calls</th>
-            `).join("")}
-          </tr>
-        </thead>
-        <tbody>
-          ${PEOPLE.map(person => `
-            <tr>
-              <td class="agent-name">${escapeHtml(displayName(person))}</td>
-              ${reports.map(report => {
-                const saved = (report.rows || []).find(row => row.name === person.name);
-                const status = saved ? (saved.kpi || getDisplayKpi(saved)) : "N/A";
-                const statusClass = status === "Pass" ? "status-pass" : status === "Failed" ? "status-fail" : "status-na";
-                const callText = saved && !EXCLUDED_STATUSES.includes(saved.status)
-                  ? secondsToHms(saved.callSeconds)
-                  : (saved ? saved.status : "N/A");
-                const callsText = saved && !EXCLUDED_STATUSES.includes(saved.status)
-                  ? saved.totalCalls
-                  : (saved ? saved.status : "N/A");
-                return `
-                  <td class="${statusClass} day-start">${status}</td>
-                  <td><strong>${escapeHtml(callText)}</strong></td>
-                  <td><strong>${escapeHtml(callsText)}</strong></td>
-                `;
-              }).join("")}
-            </tr>
-          `).join("")}
-        </tbody>
-      `;
-    }
-
-    function exportHistoryCsv() {
-      if (!currentHistoryReports.length) return;
-
-      const headers = ["Agent"];
-      currentHistoryReports.forEach(report => {
-        headers.push(`${report.date} Status`, `${report.date} Call Time`, `${report.date} Total Calls`);
-      });
-
-      const lines = [headers.map(csvEscape).join(",")];
-
-      PEOPLE.forEach(person => {
-        const rowValues = [displayName(person)];
-        currentHistoryReports.forEach(report => {
-          const saved = (report.rows || []).find(item => item.name === person.name);
-          if (!saved) {
-            rowValues.push("N/A", "N/A", "N/A");
-          } else if (EXCLUDED_STATUSES.includes(saved.status)) {
-            rowValues.push("N/A", saved.status, saved.status);
-          } else {
-            rowValues.push(saved.kpi || getDisplayKpi(saved), secondsToHms(saved.callSeconds), saved.totalCalls);
-          }
-        });
-        lines.push(rowValues.map(csvEscape).join(","));
-      });
-
-      const selectedMonth = $("historyMonth").value || "history";
-      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `call-log-history-${selectedMonth}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function showHistoryNotice(message, type = "info") {
-      const notice = $("historyNotice");
-      notice.textContent = message;
-      notice.className = `notice show ${type}`;
-    }
-
-    function formatShortDate(value) {
-      const date = new Date(`${value}T00:00:00`);
-      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    }
-
-
     function exportDailyCsv() {
       const reportDate = $("reportDate").value || "daily-report";
-      const headers = ["Date", "Name", "Role", "Extensions", "Status", "Call Time", "Call Seconds", "Total Calls", "Daily KPI"];
+      const headers = ["Date", "Name", "Role", "Extensions", "Status", "Call Time", "Call Seconds", "Total Calls", "KPI Rule", "Daily KPI"];
       const lines = [headers.join(",")];
 
       currentDailyRows.forEach(row => {
@@ -1000,9 +929,11 @@
           row.role,
           row.extensions.join(" / "),
           row.status,
+          row.saleMade || "",
           secondsToHms(row.callSeconds),
           row.callSeconds,
           row.totalCalls,
+          getKpiRuleText(row),
           getDisplayKpi(row)
         ].map(csvEscape);
         lines.push(values.join(","));
