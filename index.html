@@ -516,7 +516,7 @@
     const KPI_SECONDS = 90 * 60;
     const EXCLUDED_STATUSES = ["On Leave", "Absent", "No Work Day", "Exempted Day"];
     const STATUS_OPTIONS = ["Working", ...EXCLUDED_STATUSES];
-    const SALES_OPTIONS = ["", "Yes", "No"];
+    const SALES_OPTIONS = ["", "With sale", "Without sale"];
 
     const PEOPLE = [
       { name: "Kim Anderson", extensions: ["813"], role: "Agent" },
@@ -709,7 +709,7 @@
             <th>Call Time</th>
             <th>Total Calls</th>
             <th>Daily KPI</th>
-            ${role === "Agent" || role === "Supervisor" ? "<th>Sale?</th>" : ""}
+            ${role === "Agent" || role === "Supervisor" ? "<th>Sales Activity</th>" : ""}
           </tr>
         </thead>
         <tbody>${roleRows.map(item => dailyRowHtml(item.row, item.index)).join("")}</tbody>
@@ -756,9 +756,16 @@
       </select>`;
     }
 
+    function normalizeSaleMade(value) {
+      if (value === "Yes") return "With sale";
+      if (value === "No") return "Without sale";
+      return value || "";
+    }
+
     function salesDropdown(value, index) {
+      const normalizedValue = normalizeSaleMade(value);
       return `<select class="status-select" data-sales-index="${index}">
-        ${SALES_OPTIONS.map(option => `<option value="${option}" ${option === value ? "selected" : ""}>${option || "Select"}</option>`).join("")}
+        ${SALES_OPTIONS.map(option => `<option value="${option}" ${option === normalizedValue ? "selected" : ""}>${option || "Select"}</option>`).join("")}
       </select>`;
     }
 
@@ -790,7 +797,7 @@
           role: row.role,
           extensions: row.extensions,
           status: row.status,
-          saleMade: row.saleMade || "",
+          saleMade: normalizeSaleMade(row.saleMade),
           callSeconds: row.callSeconds,
           totalCalls: row.totalCalls,
           kpi: getDisplayKpi(row)
@@ -929,7 +936,7 @@
           row.role,
           row.extensions.join(" / "),
           row.status,
-          row.saleMade || "",
+          normalizeSaleMade(row.saleMade),
           secondsToHms(row.callSeconds),
           row.callSeconds,
           row.totalCalls,
