@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pristine Call Logs KPI Tracker</title>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC9qWhYIZ61cx8ug9Awb-j1in8UwRpSdUc",
+    authDomain: "pristine-call-logs.firebaseapp.com",
+    projectId: "pristine-call-logs",
+    storageBucket: "pristine-call-logs.firebasestorage.app",
+    messagingSenderId: "128525155487",
+    appId: "1:128525155487:web:94c92453fde7fd749f76aa"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window._db = db;
+  window._firestore = { doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy };
+  window.dispatchEvent(new Event('firebaseReady'));
+</script>
+
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3248;
+    --text: #e8eaf6;
+    --text-muted: #8b90b0;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --pass: #00c896;
+    --pass-bg: #003d2e;
+    --fail: #ff4d6d;
+    --fail-bg: #3d0015;
+    --na: #4a6fa5;
+    --na-bg: #0d1f35;
+    --warn: #f9a825;
+    --warn-bg: #3d2800;
+    --yes-sale: #ff4d6d;
+    --yes-sale-bg: #3d0015;
+    --no-sale: #00c896;
+    --no-sale-bg: #003d2e;
+    --agent-header: #f9a825;
+    --sup-header: #a78bfa;
+    --prod-header: #38bdf8;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 58px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-brand {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar-brand span { color: var(--text); }
+
+  .topbar-nav { display: flex; gap: 4px; }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .nav-btn.active { color: var(--text); background: var(--surface2); border: 1px solid var(--border); }
+
+  .topbar-status {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--pass);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ─── PAGES ─── */
+  .page { display: none; padding: 28px; max-width: 1600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7c74ff; }
+  .btn-success { background: var(--pass); color: #000; }
+  .btn-success:hover { background: #00e0aa; }
+  .btn-danger { background: var(--fail); color: #fff; }
+  .btn-danger:hover { background: #ff6b85; }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-warn { background: var(--warn); color: #000; }
+  .btn-warn:hover { background: #ffc107; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ─── FORMS ─── */
+  .form-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+  .form-group input, .form-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--surface2); }
+
+  /* ─── ALERTS ─── */
+  .alert {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert-success { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass); }
+  .alert-error { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail); }
+  .alert-info { background: var(--na-bg); color: #7ec8e3; border: 1px solid var(--na); }
+
+  /* ─── KPI SUMMARY TILES ─── */
+  .kpi-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .kpi-tile-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 8px; }
+  .kpi-tile-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .kpi-tile-value.pass { color: var(--pass); }
+  .kpi-tile-value.fail { color: var(--fail); }
+  .kpi-tile-value.neutral { color: var(--text); }
+
+  /* ─── TABLES ─── */
+  .table-wrap { overflow-x: auto; }
+
+  .kpi-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .kpi-table th {
+    background: var(--surface2);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .kpi-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .kpi-table tr:last-child td { border-bottom: none; }
+  .kpi-table tr:hover td { background: rgba(108,99,255,0.04); }
+
+  .section-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-header.agents { background: rgba(249,168,37,0.12); color: var(--agent-header); }
+  .section-header.supervisors { background: rgba(167,139,250,0.12); color: var(--sup-header); }
+  .section-header.prod { background: rgba(56,189,248,0.12); color: var(--prod-header); }
+
+  /* ─── STATUS BADGES ─── */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .badge-pass { background: var(--pass-bg); color: var(--pass); }
+  .badge-fail { background: var(--fail-bg); color: var(--fail); }
+  .badge-na { background: var(--na-bg); color: #7ec8e3; }
+  .badge-role-agent { background: rgba(249,168,37,0.15); color: var(--agent-header); }
+  .badge-role-supervisor { background: rgba(167,139,250,0.15); color: var(--sup-header); }
+  .badge-role-prod { background: rgba(56,189,248,0.15); color: var(--prod-header); }
+
+  /* ─── DROPDOWNS in table ─── */
+  .td-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+    min-width: 120px;
+  }
+  .td-select:focus { border-color: var(--accent); }
+  .td-select option { background: var(--surface2); }
+
+  /* Row coloring for statuses */
+  tr.row-absent td { background: rgba(74,111,165,0.08) !important; }
+  tr.row-on-leave td { background: rgba(74,111,165,0.08) !important; }
+  tr.row-sick-leave td { background: rgba(74,111,165,0.08) !important; }
+  tr.row-no-work-day td { background: rgba(74,111,165,0.08) !important; }
+
+  /* ─── MONO time display ─── */
+  .time-mono { font-family: var(--mono); font-size: 13px; }
+
+  /* ─── PAGE HEADER ─── */
+  .page-header {
+    margin-bottom: 24px;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+  .page-header p { color: var(--text-muted); font-size: 13px; }
+
+  /* ─── EMPLOYEE LIST ─── */
+  .emp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .emp-table th {
+    background: var(--surface2);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .emp-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .emp-table tr:last-child td { border-bottom: none; }
+
+  .badge-active { background: var(--pass-bg); color: var(--pass); }
+  .badge-inactive { background: var(--fail-bg); color: var(--fail); }
+
+  /* ─── EOM TABLE ─── */
+  .eom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .eom-table th {
+    background: var(--surface2);
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .eom-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .eom-table tr:last-child td { border-bottom: none; }
+
+  .spiff-yes { background: var(--pass-bg); color: var(--pass); }
+  .spiff-no { background: var(--fail-bg); color: var(--fail); }
+
+  /* ─── DAILY STATS HISTORY ─── */
+  .history-month-nav {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .month-nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .month-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .month-label {
+    font-size: 17px;
+    font-weight: 700;
+    min-width: 160px;
+    text-align: center;
+  }
+
+  .history-week-block { margin-bottom: 28px; }
+  .week-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
+  .history-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+  }
+  .history-table th {
+    background: var(--surface2);
+    padding: 7px 10px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .history-table th.day-header {
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .history-table th.agent-col {
+    text-align: left;
+    min-width: 130px;
+    background: var(--surface);
+  }
+  .history-table td {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    text-align: center;
+    vertical-align: middle;
+  }
+  .history-table td.agent-name-cell {
+    text-align: left;
+    font-weight: 600;
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  .history-table td.pass-cell { background: var(--pass-bg); color: var(--pass); font-weight: 700; font-size: 11px; }
+  .history-table td.fail-cell { background: var(--fail-bg); color: var(--fail); font-weight: 700; font-size: 11px; }
+  .history-table td.na-cell { background: var(--na-bg); color: #7ec8e3; font-weight: 700; font-size: 11px; }
+  .history-table td.empty-cell { background: var(--bg); color: var(--text-muted); }
+  .history-table td.time-cell, .history-table td.calls-cell {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .history-section-row td {
+    background: var(--surface2) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 10px;
+    padding: 5px 10px;
+    text-align: left;
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 460px;
+    max-width: 95vw;
+    box-shadow: var(--shadow);
+  }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ─── TOAST ─── */
+  .toast-container {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    min-width: 240px;
+    max-width: 360px;
+    box-shadow: var(--shadow);
+    animation: slideIn 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .toast.success { border-color: var(--pass); }
+  .toast.error { border-color: var(--fail); }
+  .toast-icon { font-size: 16px; }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ─── LOADING ─── */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0;
+  }
+
+  .text-muted { color: var(--text-muted); }
+  .text-mono { font-family: var(--mono); }
+  .flex { display: flex; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .mb-3 { margin-bottom: 12px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mt-3 { margin-top: 12px; }
+
+  /* Sales dropdown coloring */
+  select.sale-yes { background: var(--yes-sale-bg) !important; color: var(--yes-sale) !important; border-color: var(--yes-sale) !important; }
+  select.sale-no { background: var(--no-sale-bg) !important; color: var(--no-sale) !important; border-color: var(--no-sale) !important; }
+  select.sale-na { background: var(--na-bg) !important; color: #7ec8e3 !important; border-color: var(--na) !important; }
+
+  .file-input-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-muted);
+  }
+  .file-input-label:hover { border-color: var(--accent); color: var(--accent); }
+  .file-input-label.has-file { color: var(--text); border-color: var(--accent2); }
+  input[type=file] { display: none; }
+
+  /* Page 3 - scrollable history container */
+  .history-scroll { overflow-x: auto; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  @media (max-width: 768px) {
+    .kpi-tiles { grid-template-columns: repeat(2, 1fr); }
+    .topbar { padding: 0 14px; gap: 14px; }
+    .page { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">⚡ <span>Pristine</span> KPI</div>
+  <nav class="topbar-nav">
+    <button class="nav-btn" onclick="showPage('employees')">👥 Employees</button>
+    <button class="nav-btn active" onclick="showPage('daily')">📊 Daily KPI &amp; EOM</button>
+    <button class="nav-btn" onclick="showPage('history')">📅 Daily Stats History</button>
+  </nav>
+  <div class="topbar-status">
+    <div class="status-dot" id="fbStatusDot" style="background:var(--warn)"></div>
+    <span id="fbStatusLabel">Connecting…</span>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1 — EMPLOYEES
+══════════════════════════════════════════ -->
+<div class="page" id="page-employees">
+  <div class="page-header">
+    <h1>Employee List</h1>
+    <p>Manage active agents, supervisors, and prod team members.</p>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <div class="card-title" style="margin-bottom:0">Team Members</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddEmployeeModal()">+ Add Employee</button>
+    </div>
+    <div class="table-wrap">
+      <table class="emp-table" id="empTable">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Name</th>
+            <th>Extension(s)</th>
+            <th>Status</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="empTableBody">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 2 — DAILY KPI & EOM
+══════════════════════════════════════════ -->
+<div class="page active" id="page-daily">
+  <div class="page-header">
+    <h1>Daily KPI &amp; EOM</h1>
+    <p>Upload call logs, review daily KPI, and track end-of-month averages.</p>
+  </div>
+
+  <!-- Upload Card -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <div class="card-title" style="margin-bottom:0">Upload Daily Call Log</div>
+      <span class="text-muted" style="font-size:12px">KPI target: agents 1:30:00 call time · Patrick 350+ calls</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Report Date</label>
+        <input type="date" id="reportDate"/>
+      </div>
+      <div class="form-group">
+        <label>Excel or CSV File</label>
+        <label class="file-input-label" id="fileLabel" for="callLogFile">📁 Choose File</label>
+        <input type="file" id="callLogFile" accept=".xlsx,.csv" onchange="handleFileSelect(this)"/>
+      </div>
+      <div class="form-group">
+        <label>EOM Month (auto)</label>
+        <input type="text" id="eomMonthDisplay" readonly style="width:120px;color:var(--text-muted)"/>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button class="btn btn-primary" onclick="processFile()">⚡ Process File</button>
+        <button class="btn btn-ghost" onclick="loadSelectedDate()">📂 Load Date</button>
+      </div>
+    </div>
+    <div class="alert alert-success mt-3" id="processAlert"></div>
+    <div class="alert alert-error mt-3" id="processError"></div>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:8px">
+      Special statuses — Absent, On Leave, Sick Leave, No Work Day — are excluded from EOM averages.
+    </p>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="flex gap-2 mb-4">
+    <button class="btn btn-success" onclick="saveDailyReport()" id="saveBtn" disabled>💾 Save Daily Report</button>
+    <button class="btn btn-ghost" onclick="refreshEOM()">🔄 Refresh EOM</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">⬇️ Export Daily CSV</button>
+  </div>
+
+  <!-- KPI Summary Tiles -->
+  <div class="kpi-tiles">
+    <div class="kpi-tile">
+      <div class="kpi-tile-label">Daily Passing</div>
+      <div class="kpi-tile-value pass" id="tilePass">—</div>
+    </div>
+    <div class="kpi-tile">
+      <div class="kpi-tile-label">Daily Failed</div>
+      <div class="kpi-tile-value fail" id="tileFail">—</div>
+    </div>
+    <div class="kpi-tile">
+      <div class="kpi-tile-label">Total Calls</div>
+      <div class="kpi-tile-value neutral" id="tileCalls">—</div>
+    </div>
+    <div class="kpi-tile">
+      <div class="kpi-tile-label">Total Call Time</div>
+      <div class="kpi-tile-value neutral" id="tileTime">—</div>
+    </div>
+  </div>
+
+  <!-- Daily KPI Table -->
+  <div class="card" id="dailyTableCard">
+    <div class="flex items-center justify-between mb-3">
+      <div class="card-title" style="margin-bottom:0">Daily KPI</div>
+      <span class="text-muted" id="dailyDateLabel" style="font-size:12px"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="kpi-table" id="dailyKpiTable">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Call Time KPI</th>
+            <th>Call Time</th>
+            <th>Total Calls</th>
+            <th>With Sales</th>
+          </tr>
+        </thead>
+        <tbody id="dailyKpiBody">
+          <tr><td colspan="7" class="empty-state"><div class="empty-state-icon">📋</div><p>Upload a call log file to see daily KPI results.</p></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EOM Section -->
+  <div class="card" id="eomCard">
+    <div class="flex items-center justify-between mb-3">
+      <div class="card-title" style="margin-bottom:0">End of Month — <span id="eomMonthLabel">—</span></div>
+      <span class="text-muted" style="font-size:12px" id="eomDaysLabel"></span>
+    </div>
+
+    <!-- Agents EOM -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--agent-header);margin-bottom:8px">Agents</div>
+      <div class="table-wrap">
+        <table class="eom-table" id="eomAgentsTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Avg Call Time</th>
+              <th>Call Time KPI</th>
+              <th>Avg Total Calls</th>
+              <th>Sales</th>
+              <th>Spiff Qualified</th>
+            </tr>
+          </thead>
+          <tbody id="eomAgentsBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Supervisors EOM -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--sup-header);margin-bottom:8px">Supervisors</div>
+      <div class="table-wrap">
+        <table class="eom-table" id="eomSupTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Avg Call Time</th>
+              <th>Call Time KPI</th>
+              <th>Avg Total Calls</th>
+              <th>Sales</th>
+              <th>Spiff Qualified</th>
+            </tr>
+          </thead>
+          <tbody id="eomSupBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Patrick EOM -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--prod-header);margin-bottom:8px">Prod Team</div>
+      <div class="table-wrap">
+        <table class="eom-table" id="eomProdTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Avg Total Calls</th>
+              <th>Calls KPI (350+)</th>
+              <th>Days Passed</th>
+              <th>Days Worked</th>
+            </tr>
+          </thead>
+          <tbody id="eomProdBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 3 — DAILY STATS HISTORY
+══════════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="page-header">
+    <h1>Daily Stats History</h1>
+    <p>Browse saved daily reports by month, organized by week.</p>
+  </div>
+
+  <div class="history-month-nav">
+    <button class="month-nav-btn" onclick="changeHistoryMonth(-1)">‹</button>
+    <div class="month-label" id="historyMonthLabel">—</div>
+    <button class="month-nav-btn" onclick="changeHistoryMonth(1)">›</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadHistoryPage()">🔄 Refresh</button>
+  </div>
+
+  <div id="historyContent">
+    <div class="empty-state">
+      <div class="empty-state-icon">📅</div>
+      <p>Loading history…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Add/Edit Employee
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="empModal">
+  <div class="modal">
+    <h3 id="empModalTitle">Add Employee</h3>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="empId"/>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="empName" placeholder="e.g. Kim Anderson"/>
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="empRole">
+          <option value="agent">Agent</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="prod">Prod Team</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Extension(s) — comma separated</label>
+        <input type="text" id="empExt" placeholder="e.g. 813 or 815,824"/>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="empStatus">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Start Date</label>
+          <input type="date" id="empStartDate"/>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>End Date</label>
+          <input type="date" id="empEndDate"/>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEmpModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmMsg" style="color:var(--text-muted);font-size:13px"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// GLOBAL STATE
+// ════════════════════════════════════════════
+let db, FS;
+let employees = [];       // loaded from Firestore
+let currentDailyData = []; // current processed daily rows
+let currentDate = '';
+let historyMonth = new Date(); // current month shown in history
+
+// ── Default employees (seed data) ──
+const DEFAULT_EMPLOYEES = [
+  { id:'emp_kim',      name:'Kim Anderson',   role:'agent',      extensions:['813'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_shey',     name:'Shey Morgan',    role:'agent',      extensions:['815','824'], status:'active', startDate:'', endDate:'' },
+  { id:'emp_ivy',      name:'Ivy Taylor',     role:'agent',      extensions:['810'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_kris',     name:'Kris Johnson',   role:'agent',      extensions:['805'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_amy',      name:'Amy Jones',      role:'agent',      extensions:['814'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_margaret', name:'Margaret Brown', role:'agent',      extensions:['818'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_anita',    name:'Anita Watson',   role:'agent',      extensions:['828'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_wendy',    name:'Wendy Keller',   role:'agent',      extensions:['825'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_lauren',   name:'Lauren',         role:'supervisor', extensions:['809','806'], status:'active', startDate:'', endDate:'' },
+  { id:'emp_aisiah',   name:'Aisiah',         role:'supervisor', extensions:['803'],       status:'active', startDate:'', endDate:'' },
+  { id:'emp_patrick',  name:'Patrick',        role:'prod',       extensions:['807'],       status:'active', startDate:'', endDate:'' },
+];
+
+// ── Init ──
+window.addEventListener('firebaseReady', async () => {
+  db = window._db;
+  FS = window._firestore;
+  document.getElementById('fbStatusDot').style.background = 'var(--pass)';
+  document.getElementById('fbStatusLabel').textContent = 'Connected';
+
+  // Init date
+  const today = new Date();
+  document.getElementById('reportDate').value = formatDateInput(today);
+  updateEOMDisplay(today);
+
+  await loadEmployees();
+  renderEmployeeTable();
+  await loadDailyForDate(formatDateInput(today));
+  historyMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  updateHistoryMonthLabel();
+});
+
+// ════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') loadHistoryPage();
+}
+
+// ════════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════════
+function formatDateInput(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function formatMonthYear(d) {
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function formatMonthKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function secsToHMS(s) {
+  s = Math.floor(s);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function hmsToSecs(hms) {
+  if (!hms || hms === '--' || hms === '0:00:00' || hms === '00:00:00') return 0;
+  const parts = hms.split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return 0;
+}
+
+function showToast(msg, type='success') {
+  const tc = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${type==='success'?'✅':'❌'}</span> ${msg}`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function showAlert(id, msg, show=true) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('show', show);
+}
+
+function updateEOMDisplay(dateObj) {
+  const m = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  document.getElementById('eomMonthDisplay').value = m;
+  document.getElementById('eomMonthLabel').textContent = m;
+}
+
+// ════════════════════════════════════════════
+// EMPLOYEES
+// ════════════════════════════════════════════
+async function loadEmployees() {
+  try {
+    const snap = await FS.getDocs(FS.collection(db, 'employees'));
+    if (snap.empty) {
+      // Seed defaults
+      for (const emp of DEFAULT_EMPLOYEES) {
+        await FS.setDoc(FS.doc(db, 'employees', emp.id), emp);
+      }
+      employees = [...DEFAULT_EMPLOYEES];
+    } else {
+      employees = snap.docs.map(d => d.data());
+    }
+    // Sort: agents → supervisors → prod
+    const order = { agent:0, supervisor:1, prod:2 };
+    employees.sort((a,b) => (order[a.role]||0) - (order[b.role]||0) || a.name.localeCompare(b.name));
+  } catch(e) {
+    console.error(e);
+    employees = [...DEFAULT_EMPLOYEES];
+    showToast('Could not load employees from Firebase.', 'error');
+  }
+}
+
+function activeEmployees() {
+  return employees.filter(e => e.status === 'active');
+}
+
+function renderEmployeeTable() {
+  const tbody = document.getElementById('empTableBody');
+  const list = employees;
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">No employees found.</td></tr>'; return; }
+  tbody.innerHTML = list.map(emp => {
+    const roleLabel = emp.role === 'agent' ? 'Agent' : emp.role === 'supervisor' ? 'Supervisor' : 'Prod Team';
+    const roleClass = emp.role === 'agent' ? 'badge-role-agent' : emp.role === 'supervisor' ? 'badge-role-supervisor' : 'badge-role-prod';
+    const statusClass = emp.status === 'active' ? 'badge-active' : 'badge-inactive';
+    const exts = (emp.extensions||[]).join(' / ');
+    return `<tr>
+      <td><span class="badge ${roleClass}">${roleLabel}</span></td>
+      <td><strong>${emp.name}</strong></td>
+      <td class="text-mono" style="font-size:12px">${exts}</td>
+      <td><span class="badge ${statusClass}">${emp.status}</span></td>
+      <td style="color:var(--text-muted)">${emp.startDate||'—'}</td>
+      <td style="color:var(--text-muted)">${emp.endDate||'—'}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="openEditEmployeeModal('${emp.id}')">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteEmployee('${emp.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddEmployeeModal() {
+  document.getElementById('empModalTitle').textContent = 'Add Employee';
+  document.getElementById('empId').value = '';
+  document.getElementById('empName').value = '';
+  document.getElementById('empRole').value = 'agent';
+  document.getElementById('empExt').value = '';
+  document.getElementById('empStatus').value = 'active';
+  document.getElementById('empStartDate').value = '';
+  document.getElementById('empEndDate').value = '';
+  document.getElementById('empModal').classList.add('show');
+}
+
+function openEditEmployeeModal(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  document.getElementById('empModalTitle').textContent = 'Edit Employee';
+  document.getElementById('empId').value = emp.id;
+  document.getElementById('empName').value = emp.name;
+  document.getElementById('empRole').value = emp.role;
+  document.getElementById('empExt').value = (emp.extensions||[]).join(',');
+  document.getElementById('empStatus').value = emp.status;
+  document.getElementById('empStartDate').value = emp.startDate||'';
+  document.getElementById('empEndDate').value = emp.endDate||'';
+  document.getElementById('empModal').classList.add('show');
+}
+
+function closeEmpModal() { document.getElementById('empModal').classList.remove('show'); }
+
+async function saveEmployee() {
+  const id = document.getElementById('empId').value || 'emp_' + Date.now();
+  const name = document.getElementById('empName').value.trim();
+  if (!name) { showToast('Name is required.', 'error'); return; }
+  const extsRaw = document.getElementById('empExt').value.trim();
+  const extensions = extsRaw ? extsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const emp = {
+    id,
+    name,
+    role: document.getElementById('empRole').value,
+    extensions,
+    status: document.getElementById('empStatus').value,
+    startDate: document.getElementById('empStartDate').value,
+    endDate: document.getElementById('empEndDate').value,
+  };
+  try {
+    await FS.setDoc(FS.doc(db, 'employees', id), emp);
+    const idx = employees.findIndex(e => e.id === id);
+    if (idx >= 0) employees[idx] = emp; else employees.push(emp);
+    const order = { agent:0, supervisor:1, prod:2 };
+    employees.sort((a,b) => (order[a.role]||0) - (order[b.role]||0) || a.name.localeCompare(b.name));
+    renderEmployeeTable();
+    closeEmpModal();
+    showToast('Employee saved!');
+  } catch(e) {
+    showToast('Failed to save: ' + e.message, 'error');
+  }
+}
+
+function confirmDeleteEmployee(id) {
+  const emp = employees.find(e => e.id === id);
+  document.getElementById('confirmTitle').textContent = 'Remove Employee';
+  document.getElementById('confirmMsg').textContent = `Are you sure you want to remove ${emp?.name}? This will not delete their historical data.`;
+  document.getElementById('confirmOkBtn').onclick = () => deleteEmployee(id);
+  document.getElementById('confirmModal').classList.add('show');
+}
+
+async function deleteEmployee(id) {
+  try {
+    await FS.deleteDoc(FS.doc(db, 'employees', id));
+    employees = employees.filter(e => e.id !== id);
+    renderEmployeeTable();
+    closeConfirmModal();
+    showToast('Employee removed.');
+  } catch(e) {
+    showToast('Failed: ' + e.message, 'error');
+  }
+}
+
+function closeConfirmModal() { document.getElementById('confirmModal').classList.remove('show'); }
+
+// ════════════════════════════════════════════
+// FILE HANDLING
+// ════════════════════════════════════════════
+function handleFileSelect(input) {
+  const lbl = document.getElementById('fileLabel');
+  if (input.files[0]) {
+    lbl.textContent = '📄 ' + input.files[0].name;
+    lbl.classList.add('has-file');
+  } else {
+    lbl.textContent = '📁 Choose File';
+    lbl.classList.remove('has-file');
+  }
+}
+
+document.getElementById('reportDate').addEventListener('change', function() {
+  const d = new Date(this.value + 'T00:00:00');
+  updateEOMDisplay(d);
+});
+
+async function processFile() {
+  showAlert('processAlert', '', false);
+  showAlert('processError', '', false);
+  const file = document.getElementById('callLogFile').files[0];
+  if (!file) { showAlert('processError', 'Please choose a file first.', true); return; }
+  const dateVal = document.getElementById('reportDate').value;
+  if (!dateVal) { showAlert('processError', 'Please set a report date.', true); return; }
+  currentDate = dateVal;
+
+  try {
+    const rows = await parseCallLogFile(file);
+    const processed = buildDailyKPI(rows, activeEmployees());
+    currentDailyData = processed;
+    renderDailyTable(processed, dateVal);
+    document.getElementById('saveBtn').disabled = false;
+    const totalRows = rows.length;
+    showAlert('processAlert', `Processed ${totalRows} call log rows. Review statuses, then save the report.`, true);
+  } catch(e) {
+    showAlert('processError', 'Error processing file: ' + e.message, true);
+    console.error(e);
+  }
+}
+
+async function parseCallLogFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        resolve(json);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ════════════════════════════════════════════
+// KPI PROCESSING
+// ════════════════════════════════════════════
+function buildDailyKPI(rows, empList) {
+  // Map extension → employee
+  const extMap = {};
+  for (const emp of empList) {
+    for (const ext of (emp.extensions||[])) {
+      extMap[String(ext)] = emp.id;
+    }
+  }
+
+  // Aggregate per employee
+  const agg = {}; // empId → { totalSecs, totalCalls, outboundCalls }
+  for (const emp of empList) {
+    agg[emp.id] = { totalSecs: 0, totalCalls: 0, outboundCalls: 0 };
+  }
+
+  for (const row of rows) {
+    // Normalize column keys (case-insensitive)
+    const keys = Object.keys(row);
+    const getVal = (names) => {
+      for (const n of names) {
+        const k = keys.find(k => k.toLowerCase().replace(/[^a-z.]/g,'') === n.toLowerCase().replace(/[^a-z.]/g,''));
+        if (k !== undefined) return row[k];
+      }
+      return '';
+    };
+
+    const fromExt = String(getVal(['From Ext.','FromExt','from_ext','ext'])||'').trim();
+    const direction = String(getVal(['Direction','direction'])||'').trim().toLowerCase();
+    const durationRaw = getVal(['Duration','duration']);
+
+    const empId = extMap[fromExt];
+    if (!empId) continue;
+
+    const emp = empList.find(e => e.id === empId);
+    const isOutbound = direction.includes('outbound');
+    const isInbound = direction.includes('inbound');
+
+    // Duration parsing
+    let secs = 0;
+    if (durationRaw instanceof Date) {
+      secs = durationRaw.getHours()*3600 + durationRaw.getMinutes()*60 + durationRaw.getSeconds();
+    } else if (typeof durationRaw === 'string') {
+      const clean = durationRaw.trim();
+      if (clean && clean !== '--') {
+        const parts = clean.split(':').map(Number);
+        if (parts.length === 3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
+        else if (parts.length === 2) secs = parts[0]*60 + parts[1];
+      }
+    } else if (typeof durationRaw === 'number') {
+      // Excel stores time as fraction of day
+      secs = Math.round(durationRaw * 86400);
+    }
+
+    if (emp.role === 'prod') {
+      // Patrick: only outbound counts
+      if (isOutbound) agg[empId].outboundCalls++;
+    } else {
+      // All agents/supervisors: both directions for call time & count
+      agg[empId].totalCalls++;
+      agg[empId].totalSecs += secs;
+    }
+  }
+
+  // Build result rows
+  const results = [];
+  for (const emp of empList) {
+    const a = agg[emp.id] || { totalSecs:0, totalCalls:0, outboundCalls:0 };
+    let callTimeSecs = a.totalSecs;
+    let totalCalls = emp.role === 'prod' ? a.outboundCalls : a.totalCalls;
+    let kpiStatus = 'working';
+    let callTimeKPI = null;
+    let sales = 'NO';
+
+    if (emp.role === 'prod') {
+      callTimeKPI = totalCalls >= 350 ? 'pass' : 'fail';
+    } else {
+      callTimeKPI = callTimeSecs >= 5400 ? 'pass' : 'fail'; // 1:30:00 = 5400s
+    }
+
+    results.push({
+      empId: emp.id,
+      name: emp.name,
+      extensions: emp.extensions,
+      role: emp.role,
+      status: kpiStatus,
+      callTimeKPI,
+      callTimeSecs,
+      totalCalls,
+      sales,
+    });
+  }
+  return results;
+}
+
+// ════════════════════════════════════════════
+// RENDER DAILY TABLE
+// ════════════════════════════════════════════
+function renderDailyTable(data, dateVal) {
+  const d = new Date(dateVal + 'T00:00:00');
+  const label = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('dailyDateLabel').textContent = label;
+
+  const tbody = document.getElementById('dailyKpiBody');
+  const agents = data.filter(r => r.role === 'agent');
+  const supervisors = data.filter(r => r.role === 'supervisor');
+  const prod = data.filter(r => r.role === 'prod');
+
+  let html = '';
+
+  // ── Section builder ──
+  const buildSection = (label, cls, rows) => {
+    if (!rows.length) return '';
+    let h = `<tr class="section-header-row"><td colspan="7" class="section-header ${cls}">${label}</td></tr>`;
+    for (const row of rows) {
+      h += buildDataRow(row);
+    }
+    return h;
+  };
+
+  html += buildSection('Agents', 'agents', agents);
+  html += buildSection('Supervisors', 'supervisors', supervisors);
+  html += buildSection('Prod Team', 'prod', prod);
+
+  tbody.innerHTML = html;
+  updateTiles(data);
+}
+
+function buildDataRow(row) {
+  const roleLabel = row.role === 'agent' ? 'Agent' : row.role === 'supervisor' ? 'Supervisor' : 'Prod';
+  const roleClass = row.role === 'agent' ? 'badge-role-agent' : row.role === 'supervisor' ? 'badge-role-supervisor' : 'badge-role-prod';
+  const extStr = (row.extensions||[]).join('/');
+  const nameDisplay = `${row.name} <span style="color:var(--text-muted);font-size:11px">(ext. ${extStr})</span>`;
+
+  const statusOptions = ['working','absent','on-leave','sick-leave','no-work-day'];
+  const statusLabels = { 'working':'Working','absent':'Absent','on-leave':'On Leave','sick-leave':'Sick Leave','no-work-day':'No Work Day' };
+  let statusSelect = `<select class="td-select" data-empid="${row.empId}" onchange="onStatusChange(this)">`;
+  for (const s of statusOptions) {
+    statusSelect += `<option value="${s}" ${row.status===s?'selected':''}>${statusLabels[s]}</option>`;
+  }
+  statusSelect += '</select>';
+
+  const isSpecial = row.status !== 'working';
+  const kpiDisplay = isSpecial
+    ? `<span class="badge badge-na">N/A</span>`
+    : row.role === 'prod'
+      ? (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`)
+      : (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`);
+
+  const callTimeDisplay = row.role === 'prod' ? '—' : `<span class="time-mono">${secsToHMS(row.callTimeSecs)}</span>`;
+  const callsDisplay = row.role === 'prod'
+    ? `<strong class="${row.callTimeKPI==='pass'?'':'fail'}" style="color:${row.callTimeKPI==='pass'?'var(--pass)':'var(--fail)'}">${row.totalCalls}</strong>`
+    : row.totalCalls;
+
+  // Sales dropdown (N/A for prod)
+  let salesSelect = '';
+  if (row.role === 'prod') {
+    salesSelect = `<span style="color:var(--text-muted)">—</span>`;
+  } else if (isSpecial) {
+    salesSelect = `<select class="td-select sale-na" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)" disabled>
+      <option value="NA">N/A</option></select>`;
+  } else {
+    const saleClass = row.sales==='YES' ? 'sale-yes' : (row.sales==='NO' ? 'sale-no' : 'sale-na');
+    salesSelect = `<select class="td-select ${saleClass}" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)">
+      <option value="NO" ${row.sales==='NO'?'selected':''}>NO</option>
+      <option value="YES" ${row.sales==='YES'?'selected':''}>YES</option>
+    </select>`;
+  }
+
+  const rowClass = isSpecial ? `row-${row.status}` : '';
+
+  return `<tr class="${rowClass}" id="row-${row.empId}">
+    <td><span class="badge ${roleClass}">${roleLabel}</span></td>
+    <td>${nameDisplay}</td>
+    <td>${statusSelect}</td>
+    <td>${kpiDisplay}</td>
+    <td>${callTimeDisplay}</td>
+    <td>${callsDisplay}</td>
+    <td>${salesSelect}</td>
+  </tr>`;
+}
+
+function onStatusChange(sel) {
+  const empId = sel.dataset.empid;
+  const newStatus = sel.value;
+  const row = currentDailyData.find(r => r.empId === empId);
+  if (!row) return;
+  row.status = newStatus;
+  // Re-render just that row
+  const tr = document.getElementById('row-' + empId);
+  if (tr) {
+    const newHtml = buildDataRow(row);
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = newHtml;
+    tr.replaceWith(tmp.firstChild);
+  }
+  updateTiles(currentDailyData);
+}
+
+function onSaleChange(sel) {
+  const empId = sel.dataset.empid;
+  const row = currentDailyData.find(r => r.empId === empId);
+  if (!row) return;
+  row.sales = sel.value;
+  // Recolor
+  sel.className = `td-select ${sel.value==='YES'?'sale-yes':'sale-no'}`;
+}
+
+function updateTiles(data) {
+  const agents = data.filter(r => r.role === 'agent');
+  let pass = 0, fail = 0, totalCalls = 0, totalSecs = 0;
+  for (const r of agents) {
+    if (r.status !== 'working') continue;
+    if (r.callTimeKPI === 'pass') pass++; else fail++;
+    totalCalls += r.totalCalls;
+    totalSecs += r.callTimeSecs;
+  }
+  document.getElementById('tilePass').textContent = pass;
+  document.getElementById('tileFail').textContent = fail;
+  document.getElementById('tileCalls').textContent = totalCalls;
+  document.getElementById('tileTime').textContent = secsToHMS(totalSecs);
+}
+
+// ════════════════════════════════════════════
+// SAVE / LOAD DAILY REPORT
+// ════════════════════════════════════════════
+async function saveDailyReport() {
+  if (!currentDate || !currentDailyData.length) { showToast('Nothing to save.', 'error'); return; }
+  const docData = {
+    date: currentDate,
+    savedAt: new Date().toISOString(),
+    rows: currentDailyData.map(r => ({
+      empId: r.empId,
+      name: r.name,
+      role: r.role,
+      extensions: r.extensions,
+      status: r.status,
+      callTimeKPI: r.callTimeKPI,
+      callTimeSecs: r.callTimeSecs,
+      totalCalls: r.totalCalls,
+      sales: r.sales,
+    }))
+  };
+  try {
+    await FS.setDoc(FS.doc(db, 'dailyReports', currentDate), docData);
+    showToast(`Report for ${currentDate} saved!`);
+    await refreshEOM();
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function loadSelectedDate() {
+  const dateVal = document.getElementById('reportDate').value;
+  if (!dateVal) { showToast('Select a date first.', 'error'); return; }
+  await loadDailyForDate(dateVal);
+}
+
+async function loadDailyForDate(dateVal) {
+  if (!db) return;
+  try {
+    const snap = await FS.getDoc(FS.doc(db, 'dailyReports', dateVal));
+    if (snap.exists()) {
+      const data = snap.data();
+      currentDate = dateVal;
+      currentDailyData = data.rows;
+      renderDailyTable(data.rows, dateVal);
+      document.getElementById('saveBtn').disabled = false;
+      showAlert('processAlert', `Loaded saved report for ${dateVal}.`, true);
+    }
+  } catch(e) { /* silent */ }
+  await refreshEOM();
+}
+
+// ════════════════════════════════════════════
+// EOM
+// ════════════════════════════════════════════
+async function refreshEOM() {
+  if (!db) return;
+  const dateVal = document.getElementById('reportDate').value || formatDateInput(new Date());
+  const d = new Date(dateVal + 'T00:00:00');
+  const monthKey = formatMonthKey(d);
+  updateEOMDisplay(d);
+
+  try {
+    const snap = await FS.getDocs(FS.collection(db, 'dailyReports'));
+    const reports = snap.docs.map(d => d.data()).filter(r => r.date && r.date.startsWith(monthKey));
+    const daysCount = reports.length;
+    document.getElementById('eomDaysLabel').textContent = `${daysCount} saved day${daysCount!==1?'s':''} this month`;
+    buildEOMTables(reports, activeEmployees());
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function buildEOMTables(reports, empList) {
+  const agents = empList.filter(e => e.role === 'agent');
+  const supervisors = empList.filter(e => e.role === 'supervisor');
+  const prodTeam = empList.filter(e => e.role === 'prod');
+
+  buildEOMSection('eomAgentsBody', agents, reports, false);
+  buildEOMSection('eomSupBody', supervisors, reports, false);
+  buildEOMProdSection('eomProdBody', prodTeam, reports);
+}
+
+function buildEOMSection(tbodyId, empList, reports, isProd) {
+  const tbody = document.getElementById(tbodyId);
+  if (!empList.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No data.</td></tr>'; return; }
+
+  tbody.innerHTML = empList.map(emp => {
+    // Collect working days only
+    const workingRows = [];
+    for (const rep of reports) {
+      const row = (rep.rows||[]).find(r => r.empId === emp.id);
+      if (row && row.status === 'working') workingRows.push(row);
+    }
+    if (!workingRows.length) {
+      return `<tr><td><strong>${emp.name}</strong></td><td colspan="5" style="color:var(--text-muted)">No working days saved.</td></tr>`;
+    }
+    const totalSecs = workingRows.reduce((s,r) => s + (r.callTimeSecs||0), 0);
+    const avgSecs = totalSecs / workingRows.length;
+    const avgCalls = workingRows.reduce((s,r) => s + (r.totalCalls||0), 0) / workingRows.length;
+    const hasSale = workingRows.some(r => r.sales === 'YES');
+    const passCallTime = avgSecs >= 5400;
+    const spiff = passCallTime && hasSale;
+
+    return `<tr>
+      <td><strong>${emp.name}</strong></td>
+      <td class="time-mono">${secsToHMS(avgSecs)}</td>
+      <td>${passCallTime ? '<span class="badge badge-pass">Pass</span>' : '<span class="badge badge-fail">Failed</span>'}</td>
+      <td class="text-mono">${avgCalls.toFixed(1)}</td>
+      <td>${hasSale ? '<span class="badge badge-pass">With Sale</span>' : '<span class="badge" style="background:var(--surface2);color:var(--text-muted)">No Sale</span>'}</td>
+      <td><span class="badge ${spiff?'spiff-yes':'spiff-no'}">${spiff?'✅ Qualified':'❌ Not Qualified'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function buildEOMProdSection(tbodyId, empList, reports) {
+  const tbody = document.getElementById(tbodyId);
+  if (!empList.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">No data.</td></tr>'; return; }
+
+  tbody.innerHTML = empList.map(emp => {
+    const workingRows = [];
+    for (const rep of reports) {
+      const row = (rep.rows||[]).find(r => r.empId === emp.id);
+      if (row && row.status === 'working') workingRows.push(row);
+    }
+    if (!workingRows.length) {
+      return `<tr><td><strong>${emp.name}</strong></td><td colspan="4" style="color:var(--text-muted)">No working days saved.</td></tr>`;
+    }
+    const totalCalls = workingRows.reduce((s,r) => s + (r.totalCalls||0), 0);
+    const avgCalls = totalCalls / workingRows.length;
+    const daysPassed = workingRows.filter(r => r.callTimeKPI === 'pass').length;
+    const passKPI = avgCalls >= 350;
+
+    return `<tr>
+      <td><strong>${emp.name}</strong></td>
+      <td class="text-mono">${avgCalls.toFixed(1)}</td>
+      <td>${passKPI ? '<span class="badge badge-pass">Pass</span>' : '<span class="badge badge-fail">Failed</span>'}</td>
+      <td class="text-mono">${daysPassed}</td>
+      <td class="text-mono">${workingRows.length}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// EXPORT CSV
+// ════════════════════════════════════════════
+function exportCSV() {
+  if (!currentDailyData.length) { showToast('No data to export.', 'error'); return; }
+  const headers = ['Role','Name','Extensions','Status','Call Time KPI','Call Time','Total Calls','Sales'];
+  const rows = currentDailyData.map(r => [
+    r.role, r.name, (r.extensions||[]).join('/'),
+    r.status, r.status!=='working'?'N/A':r.callTimeKPI,
+    r.role==='prod'?'—':secsToHMS(r.callTimeSecs),
+    r.totalCalls,
+    r.role==='prod'?'—':r.sales
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `kpi_${currentDate||'export'}.csv`;
+  a.click();
+}
+
+// ════════════════════════════════════════════
+// HISTORY PAGE
+// ════════════════════════════════════════════
+function updateHistoryMonthLabel() {
+  document.getElementById('historyMonthLabel').textContent = formatMonthYear(historyMonth);
+}
+
+function changeHistoryMonth(dir) {
+  historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth() + dir, 1);
+  updateHistoryMonthLabel();
+  loadHistoryPage();
+}
+
+async function loadHistoryPage() {
+  if (!db) return;
+  const monthKey = formatMonthKey(historyMonth);
+  const container = document.getElementById('historyContent');
+  container.innerHTML = `<div class="empty-state"><span class="spinner"></span><p style="margin-top:12px">Loading…</p></div>`;
+
+  try {
+    const snap = await FS.getDocs(FS.collection(db, 'dailyReports'));
+    const reports = snap.docs.map(d => d.data()).filter(r => r.date && r.date.startsWith(monthKey));
+
+    if (!reports.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><p>No saved reports for ${formatMonthYear(historyMonth)}.</p></div>`;
+      return;
+    }
+
+    // Get all dates in the month that have reports
+    const savedDates = reports.map(r => r.date).sort();
+    const empList = activeEmployees();
+
+    // Group dates by week (Mon–Sun)
+    const weeks = groupDatesByWeek(savedDates, historyMonth);
+    let html = '';
+
+    const sections = [
+      { label: 'Agents', cls: 'agents', empList: empList.filter(e=>e.role==='agent') },
+      { label: 'Supervisors', cls: 'supervisors', empList: empList.filter(e=>e.role==='supervisor') },
+      { label: 'Prod Team', cls: 'prod', empList: empList.filter(e=>e.role==='prod') },
+    ];
+
+    for (const week of weeks) {
+      if (!week.dates.length) continue;
+      html += `<div class="history-week-block">
+        <div class="week-label">Week of ${week.label}</div>
+        <div class="history-scroll">`;
+
+      for (const section of sections) {
+        if (!section.empList.length) continue;
+        html += buildHistoryWeekTable(week.dates, section, reports);
+      }
+      html += `</div></div>`;
+    }
+
+    container.innerHTML = html || `<div class="empty-state"><div class="empty-state-icon">📭</div><p>No data.</p></div>`;
+  } catch(e) {
+    container.innerHTML = `<div class="empty-state"><p style="color:var(--fail)">Error loading history: ${e.message}</p></div>`;
+  }
+}
+
+function groupDatesByWeek(dates, monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  // Find all Mon-Sun weeks that overlap with the month
+  const weeks = [];
+  let d = new Date(year, month, 1);
+  // Go to Monday of the first week
+  const dayOfWeek = d.getDay();
+  const offsetToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  d = new Date(year, month, 1 + offsetToMon);
+
+  while (d.getMonth() <= month || (d.getFullYear() === year && d.getMonth() < month+1)) {
+    const weekDates = [];
+    const weekStart = new Date(d);
+    for (let i = 0; i < 7; i++) {
+      const wd = new Date(d);
+      wd.setDate(d.getDate() + i);
+      const dateStr = formatDateInput(wd);
+      if (wd.getMonth() === month && dates.includes(dateStr)) {
+        weekDates.push({ date: dateStr, label: wd.toLocaleDateString('en-US', { month:'short', day:'numeric' }), dayName: wd.toLocaleDateString('en-US', { weekday:'short' }) });
+      }
+    }
+    if (weekDates.length) {
+      weeks.push({
+        label: weekStart.toLocaleDateString('en-US', { month:'short', day:'numeric' }),
+        dates: weekDates
+      });
+    }
+    d.setDate(d.getDate() + 7);
+    if (d.getMonth() > month && d.getFullYear() >= year) break;
+  }
+  return weeks;
+}
+
+function buildHistoryWeekTable(dates, section, reports) {
+  const isProd = section.cls === 'prod';
+
+  // Header: section label spanning all
+  let html = `<table class="history-table" style="margin-bottom:12px">
+    <thead>
+      <tr>
+        <th class="agent-col" rowspan="2" style="vertical-align:bottom">${section.label}</th>`;
+
+  for (const d of dates) {
+    const colSpan = isProd ? 2 : 3;
+    html += `<th colspan="${colSpan}" class="day-header">${d.dayName} ${d.label}</th>`;
+  }
+  html += `</tr><tr>`;
+
+  for (const d of dates) {
+    html += `<th>Status</th><th>Calls</th>`;
+    if (!isProd) html += `<th>Call Time</th>`;
+  }
+  html += `</tr></thead><tbody>`;
+
+  for (const emp of section.empList) {
+    html += `<tr><td class="agent-name-cell">${emp.name}</td>`;
+    for (const d of dates) {
+      const report = reports.find(r => r.date === d.date);
+      const row = report ? (report.rows||[]).find(r => r.empId === emp.id) : null;
+
+      if (!row) {
+        html += `<td class="empty-cell">—</td><td class="empty-cell">—</td>`;
+        if (!isProd) html += `<td class="empty-cell">—</td>`;
+        continue;
+      }
+
+      const isSpecial = row.status !== 'working';
+      const statusCls = isSpecial ? 'na-cell' : (row.callTimeKPI === 'pass' ? 'pass-cell' : 'fail-cell');
+      const statusLabel = isSpecial ? row.status.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : (row.callTimeKPI === 'pass' ? 'Pass' : 'Failed');
+
+      html += `<td class="${statusCls}">${statusLabel}</td>`;
+
+      if (isProd) {
+        html += `<td class="calls-cell">${row.totalCalls}</td>`;
+      } else {
+        html += `<td class="calls-cell">${row.totalCalls}</td>`;
+        html += `<td class="time-cell">${isSpecial ? '—' : secsToHMS(row.callTimeSecs)}</td>`;
+      }
+    }
+    html += `</tr>`;
+  }
+
+  html += `</tbody></table>`;
+  return html;
+}
+</script>
+</body>
+</html>
