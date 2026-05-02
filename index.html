@@ -5,27 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Pristine Call Logs KPI Tracker</title>
 
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyC9qWhYIZ61cx8ug9Awb-j1in8UwRpSdUc",
-    authDomain: "pristine-call-logs.firebaseapp.com",
-    projectId: "pristine-call-logs",
-    storageBucket: "pristine-call-logs.firebasestorage.app",
-    messagingSenderId: "128525155487",
-    appId: "1:128525155487:web:94c92453fde7fd749f76aa"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  window._db = db;
-  window._firestore = { doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy };
-  window.dispatchEvent(new Event('firebaseReady'));
-</script>
-
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -35,34 +14,34 @@
 
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3248;
-    --text: #e8eaf6;
-    --text-muted: #8b90b0;
-    --accent: #6c63ff;
-    --accent2: #00d4aa;
-    --pass: #00c896;
-    --pass-bg: #003d2e;
-    --fail: #ff4d6d;
-    --fail-bg: #3d0015;
-    --na: #4a6fa5;
-    --na-bg: #0d1f35;
-    --warn: #f9a825;
-    --warn-bg: #3d2800;
-    --yes-sale: #ff4d6d;
-    --yes-sale-bg: #3d0015;
-    --no-sale: #00c896;
-    --no-sale-bg: #003d2e;
-    --agent-header: #f9a825;
-    --sup-header: #a78bfa;
-    --prod-header: #38bdf8;
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f5f6fa;
+    --border: #dde1ea;
+    --text: #1a1d2e;
+    --text-muted: #6b7280;
+    --accent: #4f46e5;
+    --accent2: #059669;
+    --pass: #059669;
+    --pass-bg: #d1fae5;
+    --fail: #dc2626;
+    --fail-bg: #fee2e2;
+    --na: #3b82f6;
+    --na-bg: #dbeafe;
+    --warn: #d97706;
+    --warn-bg: #fef3c7;
+    --yes-sale: #dc2626;
+    --yes-sale-bg: #fee2e2;
+    --no-sale: #059669;
+    --no-sale-bg: #d1fae5;
+    --agent-header: #b45309;
+    --sup-header: #7c3aed;
+    --prod-header: #0369a1;
     --font: 'DM Sans', sans-serif;
     --mono: 'DM Mono', monospace;
     --radius: 10px;
     --radius-sm: 6px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -656,8 +635,6 @@
             <th>Name</th>
             <th>Extension(s)</th>
             <th>Status</th>
-            <th>Start Date</th>
-            <th>End Date</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -737,29 +714,75 @@
     </div>
   </div>
 
-  <!-- Daily KPI Table -->
+  <!-- Daily KPI Tables — Agents -->
   <div class="card" id="dailyTableCard">
     <div class="flex items-center justify-between mb-3">
       <div class="card-title" style="margin-bottom:0">Daily KPI</div>
       <span class="text-muted" id="dailyDateLabel" style="font-size:12px"></span>
     </div>
-    <div class="table-wrap">
-      <table class="kpi-table" id="dailyKpiTable">
-        <thead>
-          <tr>
-            <th>Role</th>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Call Time KPI</th>
-            <th>Call Time</th>
-            <th>Total Calls</th>
-            <th>With Sales</th>
-          </tr>
-        </thead>
-        <tbody id="dailyKpiBody">
-          <tr><td colspan="7" class="empty-state"><div class="empty-state-icon">📋</div><p>Upload a call log file to see daily KPI results.</p></td></tr>
-        </tbody>
-      </table>
+
+    <!-- Agents Section -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--agent-header);margin-bottom:8px">Agents</div>
+      <div class="table-wrap">
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Call Time KPI</th>
+              <th>Call Time</th>
+              <th>Total Calls</th>
+              <th>With Sales</th>
+            </tr>
+          </thead>
+          <tbody id="dailyAgentsBody">
+            <tr><td colspan="6" class="empty-state"><div class="empty-state-icon">📋</div><p>Upload a call log file to see daily KPI results.</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Supervisors Section -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--sup-header);margin-bottom:8px">Supervisors</div>
+      <div class="table-wrap">
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Call Time KPI</th>
+              <th>Call Time</th>
+              <th>Total Calls</th>
+              <th>With Sales</th>
+            </tr>
+          </thead>
+          <tbody id="dailySupBody">
+            <tr><td colspan="6" class="empty-state"><p>Upload a call log file to see daily KPI results.</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Prod Team Section -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--prod-header);margin-bottom:8px">Prod Team</div>
+      <div class="table-wrap">
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Calls KPI (350+)</th>
+              <th>Total Calls</th>
+            </tr>
+          </thead>
+          <tbody id="dailyProdBody">
+            <tr><td colspan="4" class="empty-state"><p>Upload a call log file to see daily KPI results.</p></td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -892,16 +915,6 @@
           <option value="inactive">Inactive</option>
         </select>
       </div>
-      <div class="form-row">
-        <div class="form-group" style="flex:1">
-          <label>Start Date</label>
-          <input type="date" id="empStartDate"/>
-        </div>
-        <div class="form-group" style="flex:1">
-          <label>End Date</label>
-          <input type="date" id="empEndDate"/>
-        </div>
-      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEmpModal()">Cancel</button>
@@ -948,13 +961,12 @@ const DEFAULT_EMPLOYEES = [
 ];
 
 // ── Init ──
-window.addEventListener('firebaseReady', async () => {
+window.initApp = async function() {
   db = window._db;
   FS = window._firestore;
   document.getElementById('fbStatusDot').style.background = 'var(--pass)';
   document.getElementById('fbStatusLabel').textContent = 'Connected';
 
-  // Init date
   const today = new Date();
   document.getElementById('reportDate').value = formatDateInput(today);
   updateEOMDisplay(today);
@@ -964,7 +976,7 @@ window.addEventListener('firebaseReady', async () => {
   await loadDailyForDate(formatDateInput(today));
   historyMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   updateHistoryMonthLabel();
-});
+};
 
 // ════════════════════════════════════════════
 // NAVIGATION
@@ -1062,7 +1074,7 @@ function activeEmployees() {
 function renderEmployeeTable() {
   const tbody = document.getElementById('empTableBody');
   const list = employees;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">No employees found.</td></tr>'; return; }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px">No employees found.</td></tr>'; return; }
   tbody.innerHTML = list.map(emp => {
     const roleLabel = emp.role === 'agent' ? 'Agent' : emp.role === 'supervisor' ? 'Supervisor' : 'Prod Team';
     const roleClass = emp.role === 'agent' ? 'badge-role-agent' : emp.role === 'supervisor' ? 'badge-role-supervisor' : 'badge-role-prod';
@@ -1073,8 +1085,6 @@ function renderEmployeeTable() {
       <td><strong>${emp.name}</strong></td>
       <td class="text-mono" style="font-size:12px">${exts}</td>
       <td><span class="badge ${statusClass}">${emp.status}</span></td>
-      <td style="color:var(--text-muted)">${emp.startDate||'—'}</td>
-      <td style="color:var(--text-muted)">${emp.endDate||'—'}</td>
       <td>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-sm" onclick="openEditEmployeeModal('${emp.id}')">✏️ Edit</button>
@@ -1092,8 +1102,6 @@ function openAddEmployeeModal() {
   document.getElementById('empRole').value = 'agent';
   document.getElementById('empExt').value = '';
   document.getElementById('empStatus').value = 'active';
-  document.getElementById('empStartDate').value = '';
-  document.getElementById('empEndDate').value = '';
   document.getElementById('empModal').classList.add('show');
 }
 
@@ -1106,8 +1114,6 @@ function openEditEmployeeModal(id) {
   document.getElementById('empRole').value = emp.role;
   document.getElementById('empExt').value = (emp.extensions||[]).join(',');
   document.getElementById('empStatus').value = emp.status;
-  document.getElementById('empStartDate').value = emp.startDate||'';
-  document.getElementById('empEndDate').value = emp.endDate||'';
   document.getElementById('empModal').classList.add('show');
 }
 
@@ -1125,8 +1131,6 @@ async function saveEmployee() {
     role: document.getElementById('empRole').value,
     extensions,
     status: document.getElementById('empStatus').value,
-    startDate: document.getElementById('empStartDate').value,
-    endDate: document.getElementById('empEndDate').value,
   };
   try {
     await FS.setDoc(FS.doc(db, 'employees', id), emp);
@@ -1328,97 +1332,93 @@ function renderDailyTable(data, dateVal) {
   const label = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   document.getElementById('dailyDateLabel').textContent = label;
 
-  const tbody = document.getElementById('dailyKpiBody');
   const agents = data.filter(r => r.role === 'agent');
   const supervisors = data.filter(r => r.role === 'supervisor');
   const prod = data.filter(r => r.role === 'prod');
 
-  let html = '';
+  const agentsBody = document.getElementById('dailyAgentsBody');
+  const supBody = document.getElementById('dailySupBody');
+  const prodBody = document.getElementById('dailyProdBody');
 
-  // ── Section builder ──
-  const buildSection = (label, cls, rows) => {
-    if (!rows.length) return '';
-    let h = `<tr class="section-header-row"><td colspan="7" class="section-header ${cls}">${label}</td></tr>`;
-    for (const row of rows) {
-      h += buildDataRow(row);
-    }
-    return h;
-  };
+  agentsBody.innerHTML = agents.length
+    ? agents.map(r => buildDataRow(r, false)).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No agents found.</td></tr>';
 
-  html += buildSection('Agents', 'agents', agents);
-  html += buildSection('Supervisors', 'supervisors', supervisors);
-  html += buildSection('Prod Team', 'prod', prod);
+  supBody.innerHTML = supervisors.length
+    ? supervisors.map(r => buildDataRow(r, false)).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No supervisors found.</td></tr>';
 
-  tbody.innerHTML = html;
+  prodBody.innerHTML = prod.length
+    ? prod.map(r => buildDataRow(r, true)).join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">No prod team found.</td></tr>';
+
   updateTiles(data);
 }
 
-function buildDataRow(row) {
-  const roleLabel = row.role === 'agent' ? 'Agent' : row.role === 'supervisor' ? 'Supervisor' : 'Prod';
-  const roleClass = row.role === 'agent' ? 'badge-role-agent' : row.role === 'supervisor' ? 'badge-role-supervisor' : 'badge-role-prod';
+function buildDataRow(row, isProd) {
   const extStr = (row.extensions||[]).join('/');
-  const nameDisplay = `${row.name} <span style="color:var(--text-muted);font-size:11px">(ext. ${extStr})</span>`;
+  const nameDisplay = `<strong>${row.name}</strong> <span style="color:var(--text-muted);font-size:11px">(ext. ${extStr})</span>`;
 
   const statusOptions = ['working','absent','on-leave','sick-leave','no-work-day'];
   const statusLabels = { 'working':'Working','absent':'Absent','on-leave':'On Leave','sick-leave':'Sick Leave','no-work-day':'No Work Day' };
-  let statusSelect = `<select class="td-select" data-empid="${row.empId}" onchange="onStatusChange(this)">`;
+  let statusSelect = `<select class="td-select" data-empid="${row.empId}" data-isprod="${isProd}" onchange="onStatusChange(this)">`;
   for (const s of statusOptions) {
     statusSelect += `<option value="${s}" ${row.status===s?'selected':''}>${statusLabels[s]}</option>`;
   }
   statusSelect += '</select>';
 
   const isSpecial = row.status !== 'working';
+
   const kpiDisplay = isSpecial
     ? `<span class="badge badge-na">N/A</span>`
-    : row.role === 'prod'
-      ? (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`)
-      : (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`);
+    : (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`);
 
-  const callTimeDisplay = row.role === 'prod' ? '—' : `<span class="time-mono">${secsToHMS(row.callTimeSecs)}</span>`;
-  const callsDisplay = row.role === 'prod'
-    ? `<strong class="${row.callTimeKPI==='pass'?'':'fail'}" style="color:${row.callTimeKPI==='pass'?'var(--pass)':'var(--fail)'}">${row.totalCalls}</strong>`
-    : row.totalCalls;
+  const rowClass = isSpecial ? `row-${row.status}` : '';
 
-  // Sales dropdown (N/A for prod)
+  if (isProd) {
+    const callsColor = row.callTimeKPI === 'pass' ? 'var(--pass)' : 'var(--fail)';
+    return `<tr class="${rowClass}" id="row-${row.empId}">
+      <td>${nameDisplay}</td>
+      <td>${statusSelect}</td>
+      <td>${isSpecial ? '<span class="badge badge-na">N/A</span>' : kpiDisplay}</td>
+      <td><strong style="color:${isSpecial ? 'var(--text-muted)' : callsColor}">${row.totalCalls}</strong></td>
+    </tr>`;
+  }
+
+  // Sales dropdown
   let salesSelect = '';
-  if (row.role === 'prod') {
-    salesSelect = `<span style="color:var(--text-muted)">—</span>`;
-  } else if (isSpecial) {
+  if (isSpecial) {
     salesSelect = `<select class="td-select sale-na" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)" disabled>
       <option value="NA">N/A</option></select>`;
   } else {
-    const saleClass = row.sales==='YES' ? 'sale-yes' : (row.sales==='NO' ? 'sale-no' : 'sale-na');
+    const saleClass = row.sales==='YES' ? 'sale-yes' : 'sale-no';
     salesSelect = `<select class="td-select ${saleClass}" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)">
       <option value="NO" ${row.sales==='NO'?'selected':''}>NO</option>
       <option value="YES" ${row.sales==='YES'?'selected':''}>YES</option>
     </select>`;
   }
 
-  const rowClass = isSpecial ? `row-${row.status}` : '';
-
   return `<tr class="${rowClass}" id="row-${row.empId}">
-    <td><span class="badge ${roleClass}">${roleLabel}</span></td>
     <td>${nameDisplay}</td>
     <td>${statusSelect}</td>
     <td>${kpiDisplay}</td>
-    <td>${callTimeDisplay}</td>
-    <td>${callsDisplay}</td>
+    <td><span class="time-mono">${secsToHMS(row.callTimeSecs)}</span></td>
+    <td>${row.totalCalls}</td>
     <td>${salesSelect}</td>
   </tr>`;
 }
 
 function onStatusChange(sel) {
   const empId = sel.dataset.empid;
+  const isProd = sel.dataset.isprod === 'true';
   const newStatus = sel.value;
   const row = currentDailyData.find(r => r.empId === empId);
   if (!row) return;
   row.status = newStatus;
-  // Re-render just that row
   const tr = document.getElementById('row-' + empId);
   if (tr) {
-    const newHtml = buildDataRow(row);
     const tmp = document.createElement('tbody');
-    tmp.innerHTML = newHtml;
+    tmp.innerHTML = buildDataRow(row, isProd);
     tr.replaceWith(tmp.firstChild);
   }
   updateTiles(currentDailyData);
@@ -1760,6 +1760,28 @@ function buildHistoryWeekTable(dates, section, reports) {
   html += `</tbody></table>`;
   return html;
 }
+</script>
+
+<!-- Firebase loaded AFTER initApp is defined so window.initApp exists when module runs -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC9qWhYIZ61cx8ug9Awb-j1in8UwRpSdUc",
+    authDomain: "pristine-call-logs.firebaseapp.com",
+    projectId: "pristine-call-logs",
+    storageBucket: "pristine-call-logs.firebasestorage.app",
+    messagingSenderId: "128525155487",
+    appId: "1:128525155487:web:94c92453fde7fd749f76aa"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window._db = db;
+  window._firestore = { doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy };
+  // initApp is now guaranteed to exist since regular script already ran
+  window.initApp();
 </script>
 </body>
 </html>
