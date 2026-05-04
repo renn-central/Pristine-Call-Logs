@@ -118,6 +118,23 @@
     .hidden { display: none !important; }
     .small { color: var(--muted); font-size: 13px; }
     .section-title { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+
+    .today-kpi td.name-cell { background: var(--yellow) !important; }
+    .spiff-qualified-row td { background: var(--green) !important; }
+    .history-week { margin-bottom: 24px; }
+    .history-week-title { margin: 4px 0 12px; color: var(--navy); font-size: 18px; }
+    .daily-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
+    .daily-card { background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+    .daily-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #edf4ff; border-bottom: 1px solid var(--line); padding: 12px 14px; }
+    .daily-card-header strong { color: var(--navy); }
+    .daily-card-body { padding: 12px; }
+    .daily-card h4 { margin: 10px 0 8px; color: var(--navy); font-size: 14px; }
+    .daily-card table { border-radius: 10px; margin-bottom: 10px; }
+    .daily-card th, .daily-card td { font-size: 12px; padding: 7px 8px; }
+    .cell-pass { background: var(--green) !important; color: var(--green-deep); font-weight: 800; }
+    .cell-fail { background: var(--red) !important; color: var(--red-deep); font-weight: 800; }
+    .empty-day { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: #f8fbff; }
+
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
       nav { display: flex; gap: 8px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -527,6 +544,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
     const isProd = role === 'Prod Team';
     const body = rows.map(r => {
       const rowClass = r.dailyStatus && r.dailyStatus !== 'Working' ? 'status-na' : '';
+      const eomRowClass = mode === 'eom' && r.spiffStatus === 'Qualified' ? 'spiff-qualified-row' : '';
 
       if (mode === 'eom') {
         if (isProd) {
@@ -537,7 +555,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
             <td>${Math.round(r.avgTotalCalls)}</td>
           </tr>`;
         }
-        return `<tr>
+        return `<tr class="${eomRowClass}">
           <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
           <td>${r.workingDays}</td>
           <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
@@ -550,7 +568,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
 
       if (isProd) {
         return `<tr class="${rowClass}" data-empid="${r.id}">
-          <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td class="name-cell"><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
           <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
           <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${r.totalCalls}</td>
@@ -558,7 +576,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
       }
 
       return `<tr class="${rowClass}" data-empid="${r.id}">
-        <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+        <td class="name-cell"><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
         <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
         <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
         <td>${secondsToHMS(r.callTimeSeconds)}</td>
@@ -575,7 +593,8 @@ function renderGroupedTables(containerId, data, mode='daily') {
         ? '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Total Calls</th></tr>'
         : '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Call Time</th><th>Total Calls</th><th>With Sales</th></tr>');
 
-    return `<h3>${role}s</h3><div style="overflow:auto"><table><thead>${headers}</thead><tbody>${body}</tbody></table></div><br>`;
+    const tableClass = mode === 'daily' ? 'today-kpi' : 'eom-table';
+    return `<h3>${role}s</h3><div style="overflow:auto"><table class="${tableClass}"><thead>${headers}</thead><tbody>${body}</tbody></table></div><br>`;
   }).join('') || '<div class="notice">No data to show yet.</div>';
 }
 function refreshDailyRender() {
@@ -666,27 +685,110 @@ async function loadHistory() {
   historyCache = await loadReportsForMonth(month);
   renderHistory(historyCache);
 }
-function renderHistory(reports) {
-  if (!reports.length) {
-    $('historyTables').innerHTML = '<div class="notice">No saved daily reports found for this month.</div>';
-    return;
+
+function monthWorkingWeeks(month) {
+  const [year, monthIndex] = month.split('-').map(Number);
+  const first = new Date(year, monthIndex - 1, 1);
+  const last = new Date(year, monthIndex, 0);
+  const weeks = [];
+  let currentWeek = [];
+  for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+    const day = d.getDay();
+    if (day === 0 || day === 6) continue;
+    const iso = d.toISOString().slice(0,10);
+    currentWeek.push(iso);
+    if (day === 5) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
   }
-  const active = activeEmployees();
-  const dates = reports.map(r => r.date);
-  const rows = active.map(emp => {
-    const cells = dates.map(date => {
-      const rep = reports.find(r => r.date === date);
-      const r = (rep.employees || []).find(x => x.id === emp.id);
-      if (!r) return '<td></td>';
-      const label = r.dailyStatus !== 'Working' ? 'N/A' : `${r.kpiStatus}<br><span class="small">${secondsToHMS(r.callTimeSeconds)} | ${r.totalCalls} calls | Sales: ${r.sales}</span>`;
-      const cls = r.dailyStatus !== 'Working' ? 'na' : r.kpiStatus === 'Passed' ? 'pass' : 'fail';
-      return `<td>${pill(label, cls)}</td>`;
-    }).join('');
-    return `<tr><td>${emp.role}</td><td><strong>${emp.name}</strong></td>${cells}</tr>`;
-  }).join('');
-  $('historyTables').innerHTML = `<div style="overflow:auto"><table><thead><tr><th>Role</th><th>Name</th>${dates.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  if (currentWeek.length) weeks.push(currentWeek);
+  return weeks;
+}
+function formatLongDate(iso) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function historyEmployeeRow(r) {
+  const isWorking = r.dailyStatus === 'Working';
+  const timeClass = isWorking && r.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'cell-pass' : 'cell-fail';
+  const salesClass = isWorking && r.sales === 'YES' ? 'cell-pass' : 'cell-fail';
+  return `<tr>
+    <td><strong>${r.name}</strong></td>
+    <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : 'N/A'}</td>
+    <td>${isWorking ? r.totalCalls : 'N/A'}</td>
+    <td class="${salesClass}">${isWorking ? r.sales : 'N/A'}</td>
+  </tr>`;
+}
+function historyProdRow(r) {
+  const isWorking = r.dailyStatus === 'Working';
+  const passed = isWorking && r.totalCalls >= PROD_CALL_GOAL;
+  return `<tr>
+    <td><strong>${r.name}</strong></td>
+    <td>${isWorking ? r.totalCalls : 'N/A'}</td>
+    <td class="${passed ? 'cell-pass' : 'cell-fail'}">${isWorking ? (passed ? 'Pass' : 'Fail') : 'N/A'}</td>
+  </tr>`;
+}
+function dailyHistoryCard(date, report) {
+  if (!report) {
+    return `<div class="daily-card">
+      <div class="daily-card-header"><strong>${formatLongDate(date)}</strong></div>
+      <div class="daily-card-body"><div class="empty-day">No saved data</div></div>
+    </div>`;
+  }
+
+  const saved = report.employees || [];
+  const agents = saved.filter(r => r.role === 'Agent');
+  const supervisors = saved.filter(r => r.role === 'Supervisor');
+  const prod = saved.filter(r => r.role === 'Prod Team');
+
+  const table = (title, headers, rows, emptyCols) => `
+    <h4>${title}</h4>
+    <table>
+      <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="${emptyCols}">No data</td></tr>`}</tbody>
+    </table>`;
+
+  return `<div class="daily-card">
+    <div class="daily-card-header">
+      <strong>${formatLongDate(date)}</strong>
+      <button class="danger" data-delete-report="${date}">Delete Data</button>
+    </div>
+    <div class="daily-card-body">
+      ${table('Agents', ['Name','Total Call Time','Total Calls','Sales'], agents.map(historyEmployeeRow).join(''), 4)}
+      ${table('Supervisors', ['Name','Total Call Time','Total Calls','Sales'], supervisors.map(historyEmployeeRow).join(''), 4)}
+      ${table('Prod Team', ['Name','Total Calls','Status'], prod.map(historyProdRow).join(''), 3)}
+    </div>
+  </div>`;
+}
+
+function renderHistory(reports) {
+  const month = $('historyMonth').value || currentMonth();
+  const weeks = monthWorkingWeeks(month);
+  const reportMap = new Map((reports || []).map(r => [r.date, r]));
+
+  $('historyTables').innerHTML = weeks.map((weekDates, i) => `
+    <section class="history-week">
+      <h3 class="history-week-title">Week ${i + 1}</h3>
+      <div class="daily-card-grid">
+        ${weekDates.map(date => dailyHistoryCard(date, reportMap.get(date))).join('')}
+      </div>
+    </section>
+  `).join('') || '<div class="notice">No weekdays found for this month.</div>';
 }
 $('loadHistoryBtn').addEventListener('click', loadHistory);
+$('historyTables').addEventListener('click', async (e) => {
+  const date = e.target.dataset.deleteReport;
+  if (!date) return;
+  if (!confirm(`Delete saved data for ${date}? You can reupload and save corrected data after deleting.`)) return;
+  try {
+    await deleteDoc(doc(db, 'dailyReports', date));
+    showMsg('historyMsg', `Deleted saved report for ${date}.`);
+    await loadHistory();
+    if (($('reportDate').value || '').slice(0,7) === date.slice(0,7)) await loadEOM();
+  } catch (err) {
+    showMsg('historyMsg', firebaseErrorMessage(err), true);
+  }
+});
 
 $('exportDailyBtn').addEventListener('click', () => {
   const rows = [['Name','Status','KPI Status','Call Time','Total Calls','With Sales']].concat(dailyResults.map(r => [
