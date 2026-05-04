@@ -1,1787 +1,738 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Pristine Call Logs KPI Tracker</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pristine Call Logs KPI Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9e1ec;
+      --navy: #1f3a5f;
+      --navy-2: #274a78;
+      --blue: #d9ecff;
+      --blue-deep: #2f80ed;
+      --green: #dff7e6;
+      --green-deep: #16833a;
+      --red: #ffe2e2;
+      --red-deep: #bc2f2f;
+      --yellow: #fff4cc;
+      --shadow: 0 16px 40px rgba(19, 35, 63, 0.10);
+      --radius: 18px;
+    }
 
-<!-- SheetJS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      background: linear-gradient(135deg, var(--navy), #14304f);
+      color: white;
+      padding: 26px 32px;
+      box-shadow: 0 8px 28px rgba(10, 30, 55, .22);
+    }
+    header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+    header p { margin: 8px 0 0; color: #d8e5f7; max-width: 920px; }
 
-<!-- Google Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    .app { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 108px); }
+    nav {
+      padding: 22px;
+      border-right: 1px solid var(--line);
+      background: #eef3fa;
+    }
+    .nav-button {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border-radius: 14px;
+      cursor: pointer;
+      text-align: left;
+      font-weight: 700;
+      transition: .2s;
+    }
+    .nav-button:hover { background: #dfe9f7; }
+    .nav-button.active { background: var(--navy); color: white; box-shadow: var(--shadow); }
 
-<style>
-  :root {
-    --bg: #f0f2f5;
-    --surface: #ffffff;
-    --surface2: #f5f6fa;
-    --border: #dde1ea;
-    --text: #1a1d2e;
-    --text-muted: #6b7280;
-    --accent: #4f46e5;
-    --accent2: #059669;
-    --pass: #059669;
-    --pass-bg: #d1fae5;
-    --fail: #dc2626;
-    --fail-bg: #fee2e2;
-    --na: #3b82f6;
-    --na-bg: #dbeafe;
-    --warn: #d97706;
-    --warn-bg: #fef3c7;
-    --yes-sale: #dc2626;
-    --yes-sale-bg: #fee2e2;
-    --no-sale: #059669;
-    --no-sale-bg: #d1fae5;
-    --agent-header: #b45309;
-    --sup-header: #7c3aed;
-    --prod-header: #0369a1;
-    --font: 'DM Sans', sans-serif;
-    --mono: 'DM Mono', monospace;
-    --radius: 10px;
-    --radius-sm: 6px;
-    --shadow: 0 2px 12px rgba(0,0,0,0.08);
-  }
+    main { padding: 24px; overflow-x: auto; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .metric { background: white; border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+    .metric small { color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .metric strong { display: block; font-size: 28px; margin-top: 8px; color: var(--navy); }
+    h2 { margin: 0 0 16px; letter-spacing: -0.02em; }
+    h3 { margin: 0 0 14px; color: var(--navy); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    input, select, button {
+      font: inherit;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+      color: var(--ink);
+    }
+    input[type="file"] { background: white; max-width: 340px; }
+    button.primary { background: var(--navy); color: white; border-color: var(--navy); font-weight: 800; cursor: pointer; }
+    button.secondary { background: #edf4ff; color: var(--navy); font-weight: 800; cursor: pointer; }
+    button.danger { background: var(--red); color: var(--red-deep); font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .48; cursor: not-allowed; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; font-size: 14px; }
+    th { background: var(--navy); color: white; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f8fbff; }
+    td select { width: 100%; min-width: 110px; padding: 8px 9px; }
+    select.sales-yes { background: var(--green); color: var(--green-deep); border-color: #86efac; font-weight: 700; }
+    select.sales-no { background: var(--red); color: var(--red-deep); border-color: #fca5a5; font-weight: 700; }
+    select.sales-na { background: var(--blue); color: #1b5a9f; border-color: #93c5fd; font-weight: 700; }
 
-  body {
-    font-family: var(--font);
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    font-size: 14px;
-  }
-
-  /* ─── TOPBAR ─── */
-  .topbar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 28px;
-    display: flex;
-    align-items: center;
-    gap: 32px;
-    height: 58px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .topbar-brand {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: -0.5px;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .topbar-brand span { color: var(--text); }
-
-  .topbar-nav { display: flex; gap: 4px; }
-
-  .nav-btn {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 6px 14px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .nav-btn:hover { color: var(--text); background: var(--surface2); }
-  .nav-btn.active { color: var(--text); background: var(--surface2); border: 1px solid var(--border); }
-
-  .topbar-status {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .status-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--pass);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-  /* ─── PAGES ─── */
-  .page { display: none; padding: 28px; max-width: 1600px; margin: 0 auto; }
-  .page.active { display: block; }
-
-  /* ─── CARDS ─── */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 22px 24px;
-    margin-bottom: 20px;
-  }
-  .card-title {
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-bottom: 16px;
-  }
-
-  /* ─── BUTTONS ─── */
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    border: none;
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #7c74ff; }
-  .btn-success { background: var(--pass); color: #000; }
-  .btn-success:hover { background: #00e0aa; }
-  .btn-danger { background: var(--fail); color: #fff; }
-  .btn-danger:hover { background: #ff6b85; }
-  .btn-ghost {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-warn { background: var(--warn); color: #000; }
-  .btn-warn:hover { background: #ffc107; }
-  .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ─── FORMS ─── */
-  .form-row {
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-  .form-group { display: flex; flex-direction: column; gap: 5px; }
-  .form-group label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-  }
-  .form-group input, .form-group select {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 13px;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
-  .form-group select option { background: var(--surface2); }
-
-  /* ─── ALERTS ─── */
-  .alert {
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    margin-bottom: 12px;
-    display: none;
-  }
-  .alert.show { display: block; }
-  .alert-success { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass); }
-  .alert-error { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail); }
-  .alert-info { background: var(--na-bg); color: #7ec8e3; border: 1px solid var(--na); }
-
-  /* ─── KPI SUMMARY TILES ─── */
-  .kpi-tiles {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-  .kpi-tile {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px 20px;
-  }
-  .kpi-tile-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 8px; }
-  .kpi-tile-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
-  .kpi-tile-value.pass { color: var(--pass); }
-  .kpi-tile-value.fail { color: var(--fail); }
-  .kpi-tile-value.neutral { color: var(--text); }
-
-  /* ─── TABLES ─── */
-  .table-wrap { overflow-x: auto; }
-
-  .kpi-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  .kpi-table th {
-    background: var(--surface2);
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .kpi-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  .kpi-table tr:last-child td { border-bottom: none; }
-  .kpi-table tr:hover td { background: rgba(108,99,255,0.04); }
-
-  .section-header {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    border-bottom: 1px solid var(--border);
-  }
-  .section-header.agents { background: rgba(249,168,37,0.12); color: var(--agent-header); }
-  .section-header.supervisors { background: rgba(167,139,250,0.12); color: var(--sup-header); }
-  .section-header.prod { background: rgba(56,189,248,0.12); color: var(--prod-header); }
-
-  /* ─── STATUS BADGES ─── */
-  .badge {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-  }
-  .badge-pass { background: var(--pass-bg); color: var(--pass); }
-  .badge-fail { background: var(--fail-bg); color: var(--fail); }
-  .badge-na { background: var(--na-bg); color: #7ec8e3; }
-  .badge-role-agent { background: rgba(249,168,37,0.15); color: var(--agent-header); }
-  .badge-role-supervisor { background: rgba(167,139,250,0.15); color: var(--sup-header); }
-  .badge-role-prod { background: rgba(56,189,248,0.15); color: var(--prod-header); }
-
-  /* ─── DROPDOWNS in table ─── */
-  .td-select {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 12px;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    outline: none;
-    width: 100%;
-    min-width: 120px;
-  }
-  .td-select:focus { border-color: var(--accent); }
-  .td-select option { background: var(--surface2); }
-
-  /* Row coloring for statuses */
-  tr.row-absent td { background: rgba(74,111,165,0.08) !important; }
-  tr.row-on-leave td { background: rgba(74,111,165,0.08) !important; }
-  tr.row-sick-leave td { background: rgba(74,111,165,0.08) !important; }
-  tr.row-no-work-day td { background: rgba(74,111,165,0.08) !important; }
-
-  /* ─── MONO time display ─── */
-  .time-mono { font-family: var(--mono); font-size: 13px; }
-
-  /* ─── PAGE HEADER ─── */
-  .page-header {
-    margin-bottom: 24px;
-  }
-  .page-header h1 {
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    letter-spacing: -0.5px;
-  }
-  .page-header p { color: var(--text-muted); font-size: 13px; }
-
-  /* ─── EMPLOYEE LIST ─── */
-  .emp-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  .emp-table th {
-    background: var(--surface2);
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .emp-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  .emp-table tr:last-child td { border-bottom: none; }
-
-  .badge-active { background: var(--pass-bg); color: var(--pass); }
-  .badge-inactive { background: var(--fail-bg); color: var(--fail); }
-
-  /* ─── EOM TABLE ─── */
-  .eom-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  .eom-table th {
-    background: var(--surface2);
-    padding: 9px 12px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .eom-table td {
-    padding: 9px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  .eom-table tr:last-child td { border-bottom: none; }
-
-  .spiff-yes { background: var(--pass-bg); color: var(--pass); }
-  .spiff-no { background: var(--fail-bg); color: var(--fail); }
-
-  /* ─── DAILY STATS HISTORY ─── */
-  .history-month-nav {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-  .month-nav-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    width: 32px; height: 32px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-  }
-  .month-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .month-label {
-    font-size: 17px;
-    font-weight: 700;
-    min-width: 160px;
-    text-align: center;
-  }
-
-  .history-week-block { margin-bottom: 28px; }
-  .week-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    padding-left: 2px;
-  }
-
-  .history-table {
-    border-collapse: collapse;
-    font-size: 12px;
-    width: 100%;
-  }
-  .history-table th {
-    background: var(--surface2);
-    padding: 7px 10px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .history-table th.day-header {
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .history-table th.agent-col {
-    text-align: left;
-    min-width: 130px;
-    background: var(--surface);
-  }
-  .history-table td {
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    text-align: center;
-    vertical-align: middle;
-  }
-  .history-table td.agent-name-cell {
-    text-align: left;
-    font-weight: 600;
-    background: var(--surface);
-    white-space: nowrap;
-  }
-  .history-table td.pass-cell { background: var(--pass-bg); color: var(--pass); font-weight: 700; font-size: 11px; }
-  .history-table td.fail-cell { background: var(--fail-bg); color: var(--fail); font-weight: 700; font-size: 11px; }
-  .history-table td.na-cell { background: var(--na-bg); color: #7ec8e3; font-weight: 700; font-size: 11px; }
-  .history-table td.empty-cell { background: var(--bg); color: var(--text-muted); }
-  .history-table td.time-cell, .history-table td.calls-cell {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .history-section-row td {
-    background: var(--surface2) !important;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-size: 10px;
-    padding: 5px 10px;
-    text-align: left;
-  }
-
-  /* ─── MODAL ─── */
-  .modal-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 500;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 28px;
-    width: 460px;
-    max-width: 95vw;
-    box-shadow: var(--shadow);
-  }
-  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-
-  /* ─── TOAST ─── */
-  .toast-container {
-    position: fixed;
-    bottom: 24px; right: 24px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .toast {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 16px;
-    font-size: 13px;
-    min-width: 240px;
-    max-width: 360px;
-    box-shadow: var(--shadow);
-    animation: slideIn 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .toast.success { border-color: var(--pass); }
-  .toast.error { border-color: var(--fail); }
-  .toast-icon { font-size: 16px; }
-  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  /* ─── LOADING ─── */
-  .spinner {
-    display: inline-block;
-    width: 16px; height: 16px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    vertical-align: middle;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ─── DIVIDER ─── */
-  .divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 18px 0;
-  }
-
-  .text-muted { color: var(--text-muted); }
-  .text-mono { font-family: var(--mono); }
-  .flex { display: flex; }
-  .gap-2 { gap: 8px; }
-  .gap-3 { gap: 12px; }
-  .items-center { align-items: center; }
-  .justify-between { justify-content: space-between; }
-  .mb-3 { margin-bottom: 12px; }
-  .mb-4 { margin-bottom: 16px; }
-  .mt-3 { margin-top: 12px; }
-
-  /* Sales dropdown coloring */
-  select.sale-yes { background: var(--yes-sale-bg) !important; color: var(--yes-sale) !important; border-color: var(--yes-sale) !important; }
-  select.sale-no { background: var(--no-sale-bg) !important; color: var(--no-sale) !important; border-color: var(--no-sale) !important; }
-  select.sale-na { background: var(--na-bg) !important; color: #7ec8e3 !important; border-color: var(--na) !important; }
-
-  .file-input-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 8px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.15s;
-    color: var(--text-muted);
-  }
-  .file-input-label:hover { border-color: var(--accent); color: var(--accent); }
-  .file-input-label.has-file { color: var(--text); border-color: var(--accent2); }
-  input[type=file] { display: none; }
-
-  /* Page 3 - scrollable history container */
-  .history-scroll { overflow-x: auto; }
-
-  .empty-state {
-    text-align: center;
-    padding: 48px 24px;
-    color: var(--text-muted);
-  }
-  .empty-state-icon { font-size: 36px; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; }
-
-  @media (max-width: 768px) {
-    .kpi-tiles { grid-template-columns: repeat(2, 1fr); }
-    .topbar { padding: 0 14px; gap: 14px; }
-    .page { padding: 14px; }
-  }
-</style>
+    .pill { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; padding: 6px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; }
+    .pass, .yes { background: var(--green); color: var(--green-deep); }
+    .fail, .no { background: var(--red); color: var(--red-deep); }
+    .na { background: var(--blue); color: #1b5a9f; }
+    .warn { background: var(--yellow); color: #8a6100; }
+    .status-na td:not(:first-child) { background: var(--blue) !important; }
+    .status-inactive td { color: #8792a3; background: #f3f4f6; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .notice { padding: 12px 14px; border-radius: 14px; background: #edf4ff; border: 1px solid #c9dcfa; color: #23456f; margin-bottom: 14px; }
+    .error { background: #fff1f1; color: #8a1f1f; border-color: #ffd0d0; }
+    .hidden { display: none !important; }
+    .small { color: var(--muted); font-size: 13px; }
+    .section-title { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      nav { display: flex; gap: 8px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .nav-button { white-space: nowrap; margin-bottom: 0; }
+      .grid, .split { grid-template-columns: 1fr; }
+      main { padding: 16px; }
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <h1>Pristine Call Logs KPI Tracker</h1>
+    <p>Upload Zoom call logs, preview daily KPI results, save final reports, and track month-to-date EOM qualification.</p>
+  </header>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-brand">⚡ <span>Pristine</span> KPI</div>
-  <nav class="topbar-nav">
-    <button class="nav-btn" onclick="showPage('employees')">👥 Employees</button>
-    <button class="nav-btn active" onclick="showPage('daily')">📊 Daily KPI &amp; EOM</button>
-    <button class="nav-btn" onclick="showPage('history')">📅 Daily Stats History</button>
-  </nav>
-  <div class="topbar-status">
-    <div class="status-dot" id="fbStatusDot" style="background:var(--warn)"></div>
-    <span id="fbStatusLabel">Connecting…</span>
-  </div>
-</div>
+  <div class="app">
+    <nav>
+      <button class="nav-button active" data-page="employeesPage">Employee List</button>
+      <button class="nav-button" data-page="kpiPage">Daily KPI & EOM</button>
+      <button class="nav-button" data-page="historyPage">Daily Stats History</button>
+    </nav>
 
-<!-- TOAST CONTAINER -->
-<div class="toast-container" id="toastContainer"></div>
+    <main>
+      <section id="employeesPage" class="page active">
+        <div class="card">
+          <div class="section-title">
+            <h2>Employee List</h2>
+            <button id="seedDefaultsBtn" class="secondary">Load Default Employees</button>
+          </div>
+          <div class="notice">Only active employees appear in Daily KPI and EOM reports. Extensions can be comma-separated, for example <strong>815,824</strong>.</div>
+          <form id="employeeForm" class="toolbar">
+            <input id="empEditId" type="hidden" />
+            <input id="empName" placeholder="Employee name" required />
+            <select id="empRole" required>
+              <option value="Agent">Agent</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Prod Team">Prod Team</option>
+            </select>
+            <input id="empExtensions" placeholder="Extensions e.g. 815,824" required />
+            <input id="empStartDate" type="date" />
+            <select id="empStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <input id="empEndDate" type="date" />
+            <button id="empSubmitBtn" class="primary" type="submit">Add Employee</button>
+            <button id="empCancelEditBtn" class="secondary" type="button" style="display:none;">Cancel Edit</button>
+          </form>
+          <div id="employeeMsg"></div>
+          <div style="overflow:auto"><table id="employeesTable"></table></div>
+        </div>
+      </section>
 
-<!-- ══════════════════════════════════════════
-     PAGE 1 — EMPLOYEES
-══════════════════════════════════════════ -->
-<div class="page" id="page-employees">
-  <div class="page-header">
-    <h1>Employee List</h1>
-    <p>Manage active agents, supervisors, and prod team members.</p>
-  </div>
+      <section id="kpiPage" class="page">
+        <div class="card">
+          <h2>Daily KPI & EOM</h2>
+          <div class="toolbar">
+            <input id="reportDate" type="date" />
+            <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+            <button id="processBtn" class="primary">Process File</button>
+            <button id="saveReportBtn" class="secondary" disabled>Save Daily Report</button>
+            <button id="exportDailyBtn" class="secondary" disabled>Export Daily CSV</button>
+            <button id="exportEomBtn" class="secondary">Export EOM CSV</button>
+          </div>
+          <div id="uploadMsg"></div>
+        </div>
 
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
-      <div class="card-title" style="margin-bottom:0">Team Members</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddEmployeeModal()">+ Add Employee</button>
-    </div>
-    <div class="table-wrap">
-      <table class="emp-table" id="empTable">
-        <thead>
-          <tr>
-            <th>Role</th>
-            <th>Name</th>
-            <th>Extension(s)</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="empTableBody">
-          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px"><span class="spinner"></span> Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+        <div class="grid" id="summaryGrid">
+          <div class="metric"><small>Agents Passed</small><strong id="sumPassed">0</strong></div>
+          <div class="metric"><small>Agents Failed</small><strong id="sumFailed">0</strong></div>
+          <div class="metric"><small>Agent Total Calls</small><strong id="sumCalls">0</strong></div>
+          <div class="metric"><small>Agent Call Time</small><strong id="sumTime">0:00:00</strong></div>
+        </div>
 
-<!-- ══════════════════════════════════════════
-     PAGE 2 — DAILY KPI & EOM
-══════════════════════════════════════════ -->
-<div class="page active" id="page-daily">
-  <div class="page-header">
-    <h1>Daily KPI &amp; EOM</h1>
-    <p>Upload call logs, review daily KPI, and track end-of-month averages.</p>
-  </div>
+        <div class="card">
+          <h3>Today's KPI Results</h3>
+          <div id="dailyTables"></div>
+        </div>
 
-  <!-- Upload Card -->
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
-      <div class="card-title" style="margin-bottom:0">Upload Daily Call Log</div>
-      <span class="text-muted" style="font-size:12px">KPI target: agents 1:30:00 call time · Patrick 350+ calls</span>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Report Date</label>
-        <input type="date" id="reportDate"/>
-      </div>
-      <div class="form-group">
-        <label>Excel or CSV File</label>
-        <label class="file-input-label" id="fileLabel" for="callLogFile">📁 Choose File</label>
-        <input type="file" id="callLogFile" accept=".xlsx,.csv" onchange="handleFileSelect(this)"/>
-      </div>
-      <div class="form-group">
-        <label>EOM Month (auto)</label>
-        <input type="text" id="eomMonthDisplay" readonly style="width:120px;color:var(--text-muted)"/>
-      </div>
-      <div style="display:flex;gap:8px;align-items:flex-end">
-        <button class="btn btn-primary" onclick="processFile()">⚡ Process File</button>
-        <button class="btn btn-ghost" onclick="loadSelectedDate()">📂 Load Date</button>
-      </div>
-    </div>
-    <div class="alert alert-success mt-3" id="processAlert"></div>
-    <div class="alert alert-error mt-3" id="processError"></div>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:8px">
-      Special statuses — Absent, On Leave, Sick Leave, No Work Day — are excluded from EOM averages.
-    </p>
-  </div>
+        <div class="card">
+          <h3>EOM Running Stats</h3>
+          <div id="eomTables"></div>
+        </div>
+      </section>
 
-  <!-- Action Buttons -->
-  <div class="flex gap-2 mb-4">
-    <button class="btn btn-success" onclick="saveDailyReport()" id="saveBtn" disabled>💾 Save Daily Report</button>
-    <button class="btn btn-ghost" onclick="refreshEOM()">🔄 Refresh EOM</button>
-    <button class="btn btn-ghost" onclick="exportCSV()">⬇️ Export Daily CSV</button>
+      <section id="historyPage" class="page">
+        <div class="card">
+          <div class="section-title">
+            <h2>Daily Stats History</h2>
+            <button id="exportHistoryBtn" class="secondary">Export Monthly History CSV</button>
+          </div>
+          <div class="toolbar">
+            <input id="historyMonth" type="month" />
+            <button id="loadHistoryBtn" class="primary">Load Month</button>
+          </div>
+          <div id="historyMsg"></div>
+          <div id="historyTables"></div>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <!-- KPI Summary Tiles -->
-  <div class="kpi-tiles">
-    <div class="kpi-tile">
-      <div class="kpi-tile-label">Daily Passing</div>
-      <div class="kpi-tile-value pass" id="tilePass">—</div>
-    </div>
-    <div class="kpi-tile">
-      <div class="kpi-tile-label">Daily Failed</div>
-      <div class="kpi-tile-value fail" id="tileFail">—</div>
-    </div>
-    <div class="kpi-tile">
-      <div class="kpi-tile-label">Total Calls</div>
-      <div class="kpi-tile-value neutral" id="tileCalls">—</div>
-    </div>
-    <div class="kpi-tile">
-      <div class="kpi-tile-label">Total Call Time</div>
-      <div class="kpi-tile-value neutral" id="tileTime">—</div>
-    </div>
-  </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-  <!-- Daily KPI Tables — Agents -->
-  <div class="card" id="dailyTableCard">
-    <div class="flex items-center justify-between mb-3">
-      <div class="card-title" style="margin-bottom:0">Daily KPI</div>
-      <span class="text-muted" id="dailyDateLabel" style="font-size:12px"></span>
-    </div>
-
-    <!-- Agents Section -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--agent-header);margin-bottom:8px">Agents</div>
-      <div class="table-wrap">
-        <table class="kpi-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Call Time KPI</th>
-              <th>Call Time</th>
-              <th>Total Calls</th>
-              <th>With Sales</th>
-            </tr>
-          </thead>
-          <tbody id="dailyAgentsBody">
-            <tr><td colspan="6" class="empty-state"><div class="empty-state-icon">📋</div><p>Upload a call log file to see daily KPI results.</p></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Supervisors Section -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--sup-header);margin-bottom:8px">Supervisors</div>
-      <div class="table-wrap">
-        <table class="kpi-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Call Time KPI</th>
-              <th>Call Time</th>
-              <th>Total Calls</th>
-              <th>With Sales</th>
-            </tr>
-          </thead>
-          <tbody id="dailySupBody">
-            <tr><td colspan="6" class="empty-state"><p>Upload a call log file to see daily KPI results.</p></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Prod Team Section -->
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--prod-header);margin-bottom:8px">Prod Team</div>
-      <div class="table-wrap">
-        <table class="kpi-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Calls KPI (350+)</th>
-              <th>Total Calls</th>
-            </tr>
-          </thead>
-          <tbody id="dailyProdBody">
-            <tr><td colspan="4" class="empty-state"><p>Upload a call log file to see daily KPI results.</p></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- EOM Section -->
-  <div class="card" id="eomCard">
-    <div class="flex items-center justify-between mb-3">
-      <div class="card-title" style="margin-bottom:0">End of Month — <span id="eomMonthLabel">—</span></div>
-      <span class="text-muted" style="font-size:12px" id="eomDaysLabel"></span>
-    </div>
-
-    <!-- Agents EOM -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--agent-header);margin-bottom:8px">Agents</div>
-      <div class="table-wrap">
-        <table class="eom-table" id="eomAgentsTable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Avg Call Time</th>
-              <th>Call Time KPI</th>
-              <th>Avg Total Calls</th>
-              <th>Sales</th>
-              <th>Spiff Qualified</th>
-            </tr>
-          </thead>
-          <tbody id="eomAgentsBody">
-            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Supervisors EOM -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--sup-header);margin-bottom:8px">Supervisors</div>
-      <div class="table-wrap">
-        <table class="eom-table" id="eomSupTable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Avg Call Time</th>
-              <th>Call Time KPI</th>
-              <th>Avg Total Calls</th>
-              <th>Sales</th>
-              <th>Spiff Qualified</th>
-            </tr>
-          </thead>
-          <tbody id="eomSupBody">
-            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Patrick EOM -->
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--prod-header);margin-bottom:8px">Prod Team</div>
-      <div class="table-wrap">
-        <table class="eom-table" id="eomProdTable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Avg Total Calls</th>
-              <th>Calls KPI (350+)</th>
-              <th>Days Passed</th>
-              <th>Days Worked</th>
-            </tr>
-          </thead>
-          <tbody id="eomProdBody">
-            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">No saved reports yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     PAGE 3 — DAILY STATS HISTORY
-══════════════════════════════════════════ -->
-<div class="page" id="page-history">
-  <div class="page-header">
-    <h1>Daily Stats History</h1>
-    <p>Browse saved daily reports by month, organized by week.</p>
-  </div>
-
-  <div class="history-month-nav">
-    <button class="month-nav-btn" onclick="changeHistoryMonth(-1)">‹</button>
-    <div class="month-label" id="historyMonthLabel">—</div>
-    <button class="month-nav-btn" onclick="changeHistoryMonth(1)">›</button>
-    <button class="btn btn-ghost btn-sm" onclick="loadHistoryPage()">🔄 Refresh</button>
-  </div>
-
-  <div id="historyContent">
-    <div class="empty-state">
-      <div class="empty-state-icon">📅</div>
-      <p>Loading history…</p>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     MODAL — Add/Edit Employee
-══════════════════════════════════════════ -->
-<div class="modal-overlay" id="empModal">
-  <div class="modal">
-    <h3 id="empModalTitle">Add Employee</h3>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <input type="hidden" id="empId"/>
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" id="empName" placeholder="e.g. Kim Anderson"/>
-      </div>
-      <div class="form-group">
-        <label>Role</label>
-        <select id="empRole">
-          <option value="agent">Agent</option>
-          <option value="supervisor">Supervisor</option>
-          <option value="prod">Prod Team</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Extension(s) — comma separated</label>
-        <input type="text" id="empExt" placeholder="e.g. 813 or 815,824"/>
-      </div>
-      <div class="form-group">
-        <label>Status</label>
-        <select id="empStatus">
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeEmpModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
-    </div>
-  </div>
-</div>
-
-<!-- CONFIRM MODAL -->
-<div class="modal-overlay" id="confirmModal">
-  <div class="modal">
-    <h3 id="confirmTitle">Confirm</h3>
-    <p id="confirmMsg" style="color:var(--text-muted);font-size:13px"></p>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeConfirmModal()">Cancel</button>
-      <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ════════════════════════════════════════════
-// GLOBAL STATE
-// ════════════════════════════════════════════
-let db, FS;
-let employees = [];       // loaded from Firestore
-let currentDailyData = []; // current processed daily rows
-let currentDate = '';
-let historyMonth = new Date(); // current month shown in history
-
-// ── Default employees (seed data) ──
-const DEFAULT_EMPLOYEES = [
-  { id:'emp_kim',      name:'Kim Anderson',   role:'agent',      extensions:['813'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_shey',     name:'Shey Morgan',    role:'agent',      extensions:['815','824'], status:'active', startDate:'', endDate:'' },
-  { id:'emp_ivy',      name:'Ivy Taylor',     role:'agent',      extensions:['810'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_kris',     name:'Kris Johnson',   role:'agent',      extensions:['805'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_amy',      name:'Amy Jones',      role:'agent',      extensions:['814'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_margaret', name:'Margaret Brown', role:'agent',      extensions:['818'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_anita',    name:'Anita Watson',   role:'agent',      extensions:['828'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_wendy',    name:'Wendy Keller',   role:'agent',      extensions:['825'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_lauren',   name:'Lauren',         role:'supervisor', extensions:['809','806'], status:'active', startDate:'', endDate:'' },
-  { id:'emp_aisiah',   name:'Aisiah',         role:'supervisor', extensions:['803'],       status:'active', startDate:'', endDate:'' },
-  { id:'emp_patrick',  name:'Patrick',        role:'prod',       extensions:['807'],       status:'active', startDate:'', endDate:'' },
-];
-
-// ── Init ──
-window.initApp = async function() {
-  db = window._db;
-  FS = window._firestore;
-  document.getElementById('fbStatusDot').style.background = 'var(--pass)';
-  document.getElementById('fbStatusLabel').textContent = 'Connected';
-
-  const today = new Date();
-  document.getElementById('reportDate').value = formatDateInput(today);
-  updateEOMDisplay(today);
-
-  await loadEmployees();
-  renderEmployeeTable();
-  await loadDailyForDate(formatDateInput(today));
-  historyMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  updateHistoryMonthLabel();
+const firebaseConfig = {
+  apiKey: "AIzaSyAegCpltFBGUvC_Lao1zlMJdGPwwEuBqNw",
+  authDomain: "pristine-call-logs-88c4e.firebaseapp.com",
+  projectId: "pristine-call-logs-88c4e",
+  storageBucket: "pristine-call-logs-88c4e.firebasestorage.app",
+  messagingSenderId: "32628699044",
+  appId: "1:32628699044:web:d968663de8b78de1191b31"
 };
 
-// ════════════════════════════════════════════
-// NAVIGATION
-// ════════════════════════════════════════════
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  event.target.classList.add('active');
-  if (name === 'history') loadHistoryPage();
-}
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// ════════════════════════════════════════════
-// UTILITIES
-// ════════════════════════════════════════════
-function formatDateInput(d) {
-  return d.toISOString().split('T')[0];
-}
+const DEFAULT_EMPLOYEES = [
+  { role: 'Agent', name: 'Kim Anderson', extensions: ['813'], status: 'active' },
+  { role: 'Agent', name: 'Shey Morgan', extensions: ['815','824'], status: 'active' },
+  { role: 'Agent', name: 'Ivy Taylor', extensions: ['810'], status: 'active' },
+  { role: 'Agent', name: 'Kris Johnson', extensions: ['805'], status: 'active' },
+  { role: 'Agent', name: 'Amy Jones', extensions: ['814'], status: 'active' },
+  { role: 'Agent', name: 'Margaret Brown', extensions: ['818'], status: 'active' },
+  { role: 'Agent', name: 'Anita Watson', extensions: ['828'], status: 'active' },
+  { role: 'Agent', name: 'Wendy Keller', extensions: ['825'], status: 'active' },
+  { role: 'Supervisor', name: 'Lauren', extensions: ['809','806'], status: 'active' },
+  { role: 'Supervisor', name: 'Aisiah', extensions: ['803'], status: 'active' },
+  { role: 'Prod Team', name: 'Patrick', extensions: ['807'], status: 'active' }
+];
 
-function formatMonthYear(d) {
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-}
+const DAILY_STATUSES = ['Working', 'Absent', 'On Leave', 'Sick Leave', 'No Work Day'];
+const SALES_STATUSES = ['YES', 'NO', 'N/A'];
+const AGENT_CALL_TIME_GOAL_SECONDS = 90 * 60;
+const PROD_CALL_GOAL = 350;
 
-function formatMonthKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-}
+let employees = [];
+let dailyResults = [];
+let eomResults = [];
+let historyCache = [];
 
-function secsToHMS(s) {
-  s = Math.floor(s);
-  const h = Math.floor(s/3600);
-  const m = Math.floor((s%3600)/60);
-  const sec = s%60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-}
+const $ = (id) => document.getElementById(id);
+const todayISO = () => new Date().toISOString().slice(0,10);
+const currentMonth = () => todayISO().slice(0,7);
 
-function hmsToSecs(hms) {
-  if (!hms || hms === '--' || hms === '0:00:00' || hms === '00:00:00') return 0;
-  const parts = hms.split(':').map(Number);
-  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
-  if (parts.length === 2) return parts[0]*60 + parts[1];
+$('reportDate').value = todayISO();
+$('historyMonth').value = currentMonth();
+
+function safeId(text) { return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function normalizeExtension(v) { return String(v ?? '').trim().replace(/\.0$/, ''); }
+function employeeDocId(emp) { return safeId(`${emp.name}-${emp.extensions.join('-')}`); }
+function secondsToHMS(seconds) {
+  seconds = Math.max(0, Math.round(Number(seconds) || 0));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function parseDurationToSeconds(value) {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') {
+    if (value > 0 && value < 1) return Math.round(value * 86400);
+    return Math.round(value);
+  }
+  const text = String(value).trim();
+  if (!text || text === '--' || text === '—') return 0;
+  if (/^\d+(\.\d+)?$/.test(text)) return Math.round(Number(text));
+  const parts = text.split(':').map(Number);
+  if (parts.some(Number.isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
   return 0;
 }
-
-function showToast(msg, type='success') {
-  const tc = document.getElementById('toastContainer');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<span class="toast-icon">${type==='success'?'✅':'❌'}</span> ${msg}`;
-  tc.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+function normalizeHeader(h) { return String(h || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function directionIsOutbound(direction) { return String(direction || '').toLowerCase().includes('outbound'); }
+function directionIsInboundOrOutbound(direction) {
+  const d = String(direction || '').toLowerCase();
+  return d.includes('outbound') || d.includes('inbound');
+}
+function showMsg(containerId, message, isError=false) {
+  $(containerId).innerHTML = message ? `<div class="notice ${isError ? 'error' : ''}">${message}</div>` : '';
+}
+function firebaseErrorMessage(err) {
+  const msg = err?.message || String(err);
+  if (msg.includes('Missing or insufficient permissions') || err?.code === 'permission-denied') {
+    return 'Firebase blocked this action: Missing or insufficient permissions. Because this app has no login, your Firestore rules must allow read/write access for the employees and dailyReports collections, or the app cannot save employees or reports.';
+  }
+  if (msg.includes('Cloud Firestore API') || msg.includes('firestore.googleapis.com') || err?.code === 'failed-precondition') {
+    return 'Firestore may not be enabled for this Firebase project yet. In Firebase Console, open Firestore Database and create/enable the database.';
+  }
+  return msg;
+}
+function downloadCSV(filename, rows) {
+  const csv = rows.map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function pill(value, type) { return `<span class="pill ${type}">${value}</span>`; }
+function selectHTML(options, selected, dataAttrs='') {
+  return `<select ${dataAttrs}>${options.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+}
+function salesSelectHTML(selected) {
+  const cls = selected === 'YES' ? 'sales-yes' : selected === 'N/A' ? 'sales-na' : 'sales-no';
+  return selectHTML(SALES_STATUSES, selected, `data-sales-status="1" class="${cls}"`);
 }
 
-function showAlert(id, msg, show=true) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.toggle('show', show);
-}
-
-function updateEOMDisplay(dateObj) {
-  const m = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  document.getElementById('eomMonthDisplay').value = m;
-  document.getElementById('eomMonthLabel').textContent = m;
-}
-
-// ════════════════════════════════════════════
-// EMPLOYEES
-// ════════════════════════════════════════════
 async function loadEmployees() {
   try {
-    const snap = await FS.getDocs(FS.collection(db, 'employees'));
-    if (snap.empty) {
-      // Seed defaults
-      for (const emp of DEFAULT_EMPLOYEES) {
-        await FS.setDoc(FS.doc(db, 'employees', emp.id), emp);
-      }
-      employees = [...DEFAULT_EMPLOYEES];
-    } else {
-      employees = snap.docs.map(d => d.data());
+    const snap = await getDocs(query(collection(db, 'employees'), orderBy('name')));
+    employees = snap.docs.map(d => ({ id: d.id, ...d.data(), extensions: (d.data().extensions || []).map(normalizeExtension) }));
+    renderEmployees();
+    return true;
+  } catch (err) {
+    employees = [];
+    renderEmployees();
+    showMsg('employeeMsg', firebaseErrorMessage(err), true);
+    return false;
+  }
+}
+async function saveEmployee(emp) {
+  const id = emp.id || employeeDocId(emp);
+  await setDoc(doc(db, 'employees', id), { ...emp, id });
+}
+async function seedDefaults() {
+  try {
+    showMsg('employeeMsg', 'Loading default employees...');
+    for (const emp of DEFAULT_EMPLOYEES) {
+      await saveEmployee({ ...emp, startDate: emp.startDate || '', endDate: '' });
     }
-    // Sort: agents → supervisors → prod
-    const order = { agent:0, supervisor:1, prod:2 };
-    employees.sort((a,b) => (order[a.role]||0) - (order[b.role]||0) || a.name.localeCompare(b.name));
-  } catch(e) {
-    console.error(e);
-    employees = [...DEFAULT_EMPLOYEES];
-    showToast('Could not load employees from Firebase.', 'error');
+    await loadEmployees();
+    showMsg('employeeMsg', 'Default employees loaded successfully.');
+  } catch (err) {
+    showMsg('employeeMsg', firebaseErrorMessage(err), true);
   }
 }
-
-function activeEmployees() {
-  return employees.filter(e => e.status === 'active');
-}
-
-function renderEmployeeTable() {
-  const tbody = document.getElementById('empTableBody');
-  const list = employees;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px">No employees found.</td></tr>'; return; }
-  tbody.innerHTML = list.map(emp => {
-    const roleLabel = emp.role === 'agent' ? 'Agent' : emp.role === 'supervisor' ? 'Supervisor' : 'Prod Team';
-    const roleClass = emp.role === 'agent' ? 'badge-role-agent' : emp.role === 'supervisor' ? 'badge-role-supervisor' : 'badge-role-prod';
-    const statusClass = emp.status === 'active' ? 'badge-active' : 'badge-inactive';
-    const exts = (emp.extensions||[]).join(' / ');
-    return `<tr>
-      <td><span class="badge ${roleClass}">${roleLabel}</span></td>
+function renderEmployees() {
+  const rows = employees.map(emp => `
+    <tr class="${emp.status === 'inactive' ? 'status-inactive' : ''}">
+      <td>${emp.role}</td>
       <td><strong>${emp.name}</strong></td>
-      <td class="text-mono" style="font-size:12px">${exts}</td>
-      <td><span class="badge ${statusClass}">${emp.status}</span></td>
+      <td>${(emp.extensions || []).join(', ')}</td>
+      <td>${emp.startDate || ''}</td>
+      <td>${emp.status === 'active' ? pill('Active','pass') : pill('Inactive','na')}</td>
+      <td>${emp.endDate || ''}</td>
       <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="openEditEmployeeModal('${emp.id}')">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDeleteEmployee('${emp.id}')">🗑️</button>
-        </div>
+        <button class="edit" data-edit-emp="${emp.id}">Edit</button>
+        <button class="danger" data-delete-emp="${emp.id}">Remove</button>
       </td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
+  $('employeesTable').innerHTML = `
+    <thead><tr><th>Role</th><th>Name</th><th>Phone Extension</th><th>Start Date</th><th>Status</th><th>End Date</th><th>Action</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="7">No employees yet. Click Load Default Employees or add employees manually.</td></tr>`}</tbody>`;
 }
 
-function openAddEmployeeModal() {
-  document.getElementById('empModalTitle').textContent = 'Add Employee';
-  document.getElementById('empId').value = '';
-  document.getElementById('empName').value = '';
-  document.getElementById('empRole').value = 'agent';
-  document.getElementById('empExt').value = '';
-  document.getElementById('empStatus').value = 'active';
-  document.getElementById('empModal').classList.add('show');
+function resetEmployeeForm() {
+  $('employeeForm').reset();
+  $('empEditId').value = '';
+  $('empSubmitBtn').textContent = 'Add Employee';
+  $('empCancelEditBtn').style.display = 'none';
 }
 
-function openEditEmployeeModal(id) {
-  const emp = employees.find(e => e.id === id);
-  if (!emp) return;
-  document.getElementById('empModalTitle').textContent = 'Edit Employee';
-  document.getElementById('empId').value = emp.id;
-  document.getElementById('empName').value = emp.name;
-  document.getElementById('empRole').value = emp.role;
-  document.getElementById('empExt').value = (emp.extensions||[]).join(',');
-  document.getElementById('empStatus').value = emp.status;
-  document.getElementById('empModal').classList.add('show');
+function startEmployeeEdit(emp) {
+  $('empEditId').value = emp.id;
+  $('empName').value = emp.name || '';
+  $('empRole').value = emp.role || 'Agent';
+  $('empExtensions').value = (emp.extensions || []).join(',');
+  $('empStartDate').value = emp.startDate || '';
+  $('empStatus').value = emp.status || 'active';
+  $('empEndDate').value = emp.endDate || '';
+  $('empSubmitBtn').textContent = 'Update Employee';
+  $('empCancelEditBtn').style.display = '';
+  showMsg('employeeMsg', `Editing ${emp.name}. Make your changes, then click Update Employee.`);
+  $('empName').focus();
 }
 
-function closeEmpModal() { document.getElementById('empModal').classList.remove('show'); }
-
-async function saveEmployee() {
-  const id = document.getElementById('empId').value || 'emp_' + Date.now();
-  const name = document.getElementById('empName').value.trim();
-  if (!name) { showToast('Name is required.', 'error'); return; }
-  const extsRaw = document.getElementById('empExt').value.trim();
-  const extensions = extsRaw ? extsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  const emp = {
-    id,
-    name,
-    role: document.getElementById('empRole').value,
-    extensions,
-    status: document.getElementById('empStatus').value,
-  };
+$('employeeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
   try {
-    await FS.setDoc(FS.doc(db, 'employees', id), emp);
-    const idx = employees.findIndex(e => e.id === id);
-    if (idx >= 0) employees[idx] = emp; else employees.push(emp);
-    const order = { agent:0, supervisor:1, prod:2 };
-    employees.sort((a,b) => (order[a.role]||0) - (order[b.role]||0) || a.name.localeCompare(b.name));
-    renderEmployeeTable();
-    closeEmpModal();
-    showToast('Employee saved!');
-  } catch(e) {
-    showToast('Failed to save: ' + e.message, 'error');
+    const editId = $('empEditId').value;
+    const existing = editId ? employees.find(emp => emp.id === editId) : null;
+    const emp = {
+      id: editId || undefined,
+      name: $('empName').value.trim(),
+      role: $('empRole').value,
+      extensions: $('empExtensions').value.split(',').map(normalizeExtension).filter(Boolean),
+      startDate: $('empStartDate').value || '',
+      status: $('empStatus').value,
+      endDate: $('empEndDate').value || ''
+    };
+    if (!emp.name || !emp.extensions.length) return showMsg('employeeMsg', 'Name and at least one extension are required.', true);
+    if (editId && existing && employeeDocId(emp) !== editId) {
+      await deleteDoc(doc(db, 'employees', editId));
+      delete emp.id;
+    }
+    await saveEmployee(emp);
+    resetEmployeeForm();
+    await loadEmployees();
+    showMsg('employeeMsg', editId ? 'Employee updated.' : 'Employee saved.');
+  } catch (err) {
+    showMsg('employeeMsg', firebaseErrorMessage(err), true);
   }
-}
+});
+$('empCancelEditBtn').addEventListener('click', () => {
+  resetEmployeeForm();
+  showMsg('employeeMsg', 'Edit cancelled.');
+});
+$('seedDefaultsBtn').addEventListener('click', seedDefaults);
+$('employeesTable').addEventListener('click', async (e) => {
+  const editId = e.target.dataset.editEmp;
+  if (editId) {
+    const emp = employees.find(emp => emp.id === editId);
+    if (emp) startEmployeeEdit(emp);
+    return;
+  }
 
-function confirmDeleteEmployee(id) {
-  const emp = employees.find(e => e.id === id);
-  document.getElementById('confirmTitle').textContent = 'Remove Employee';
-  document.getElementById('confirmMsg').textContent = `Are you sure you want to remove ${emp?.name}? This will not delete their historical data.`;
-  document.getElementById('confirmOkBtn').onclick = () => deleteEmployee(id);
-  document.getElementById('confirmModal').classList.add('show');
-}
-
-async function deleteEmployee(id) {
+  const id = e.target.dataset.deleteEmp;
+  if (!id) return;
+  if (!confirm('Remove this employee from the active employee list?')) return;
   try {
-    await FS.deleteDoc(FS.doc(db, 'employees', id));
-    employees = employees.filter(e => e.id !== id);
-    renderEmployeeTable();
-    closeConfirmModal();
-    showToast('Employee removed.');
-  } catch(e) {
-    showToast('Failed: ' + e.message, 'error');
+    await deleteDoc(doc(db, 'employees', id));
+    await loadEmployees();
+    resetEmployeeForm();
+    showMsg('employeeMsg', 'Employee removed.');
+  } catch (err) {
+    showMsg('employeeMsg', firebaseErrorMessage(err), true);
   }
-}
-
-function closeConfirmModal() { document.getElementById('confirmModal').classList.remove('show'); }
-
-// ════════════════════════════════════════════
-// FILE HANDLING
-// ════════════════════════════════════════════
-function handleFileSelect(input) {
-  const lbl = document.getElementById('fileLabel');
-  if (input.files[0]) {
-    lbl.textContent = '📄 ' + input.files[0].name;
-    lbl.classList.add('has-file');
-  } else {
-    lbl.textContent = '📁 Choose File';
-    lbl.classList.remove('has-file');
-  }
-}
-
-document.getElementById('reportDate').addEventListener('change', function() {
-  const d = new Date(this.value + 'T00:00:00');
-  updateEOMDisplay(d);
 });
 
-async function processFile() {
-  showAlert('processAlert', '', false);
-  showAlert('processError', '', false);
-  const file = document.getElementById('callLogFile').files[0];
-  if (!file) { showAlert('processError', 'Please choose a file first.', true); return; }
-  const dateVal = document.getElementById('reportDate').value;
-  if (!dateVal) { showAlert('processError', 'Please set a report date.', true); return; }
-  currentDate = dateVal;
-
-  try {
-    const rows = await parseCallLogFile(file);
-    const processed = buildDailyKPI(rows, activeEmployees());
-    currentDailyData = processed;
-    renderDailyTable(processed, dateVal);
-    document.getElementById('saveBtn').disabled = false;
-    const totalRows = rows.length;
-    showAlert('processAlert', `Processed ${totalRows} call log rows. Review statuses, then save the report.`, true);
-  } catch(e) {
-    showAlert('processError', 'Error processing file: ' + e.message, true);
-    console.error(e);
-  }
+function activeEmployees() { return employees.filter(e => e.status === 'active'); }
+function getColumns(headers) {
+  const normalized = headers.map(normalizeHeader);
+  const find = (...names) => names.map(normalizeHeader).map(n => normalized.indexOf(n)).find(i => i >= 0);
+  return {
+    direction: find('Direction'),
+    fromExt: find('From Ext.', 'From Ext', 'From Extension'),
+    startTime: find('Start Time', 'Start'),
+    duration: find('Duration')
+  };
 }
+function aggregateRows(rows) {
+  const headers = rows[0] || [];
+  const cols = getColumns(headers);
+  const missing = [];
+  if (cols.direction === undefined) missing.push('Direction');
+  if (cols.fromExt === undefined) missing.push('From Ext.');
+  if (cols.startTime === undefined) missing.push('Start Time');
+  if (cols.duration === undefined) missing.push('Duration');
+  if (missing.length) throw new Error(`Missing required column(s): ${missing.join(', ')}`);
 
-async function parseCallLogFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: 'array', cellDates: true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        resolve(json);
-      } catch(err) { reject(err); }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
+  const active = activeEmployees();
+  const resultMap = new Map(active.map(emp => [emp.id, { ...emp, dailyStatus: 'Working', callTimeSeconds: 0, totalCalls: 0, sales: 'NO' }]));
+
+  for (const row of rows.slice(1)) {
+    const ext = normalizeExtension(row[cols.fromExt]);
+    if (!ext) continue;
+    const direction = row[cols.direction];
+    for (const emp of active) {
+      if (!emp.extensions.includes(ext)) continue;
+      const shouldCount = emp.role === 'Prod Team' ? directionIsOutbound(direction) : directionIsInboundOrOutbound(direction);
+      if (!shouldCount) continue;
+      const item = resultMap.get(emp.id);
+      item.totalCalls += 1;
+      item.callTimeSeconds += parseDurationToSeconds(row[cols.duration]);
+    }
+  }
+  return Array.from(resultMap.values()).map(calcDailyStatus);
+}
+function calcDailyStatus(item) {
+  const nonWorking = item.dailyStatus !== 'Working';
+  let kpiStatus = 'N/A';
+  if (!nonWorking) {
+    if (item.role === 'Prod Team') kpiStatus = item.totalCalls >= PROD_CALL_GOAL ? 'Passed' : 'Failed';
+    else kpiStatus = item.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'Passed' : 'Failed';
+  }
+  return { ...item, kpiStatus, sales: nonWorking ? 'N/A' : (item.sales === 'YES' ? 'YES' : 'NO') };
+}
+function agentSummary(results) {
+  const agents = results.filter(r => r.role === 'Agent' && r.dailyStatus === 'Working');
+  return {
+    passed: agents.filter(r => r.kpiStatus === 'Passed').length,
+    failed: agents.filter(r => r.kpiStatus === 'Failed').length,
+    calls: agents.reduce((s,r) => s + r.totalCalls, 0),
+    seconds: agents.reduce((s,r) => s + r.callTimeSeconds, 0)
+  };
+}
+function updateSummary(results) {
+  const s = agentSummary(results || []);
+  $('sumPassed').textContent = s.passed;
+  $('sumFailed').textContent = s.failed;
+  $('sumCalls').textContent = s.calls;
+  $('sumTime').textContent = secondsToHMS(s.seconds);
+}
+function renderGroupedTables(containerId, data, mode='daily') {
+  const groups = ['Agent', 'Supervisor', 'Prod Team'];
+  $(containerId).innerHTML = groups.map(role => {
+    const rows = data.filter(r => r.role === role);
+    if (!rows.length) return '';
+
+    const isProd = role === 'Prod Team';
+    const body = rows.map(r => {
+      const rowClass = r.dailyStatus && r.dailyStatus !== 'Working' ? 'status-na' : '';
+
+      if (mode === 'eom') {
+        if (isProd) {
+          return `<tr>
+            <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+            <td>${r.workingDays}</td>
+            <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+            <td>${Math.round(r.avgTotalCalls)}</td>
+          </tr>`;
+        }
+        return `<tr>
+          <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td>${r.workingDays}</td>
+          <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+          <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
+          <td>${Math.round(r.avgTotalCalls)}</td>
+          <td>${pill(r.salesStatus, r.salesStatus === 'With Sale' ? 'yes' : r.salesStatus === 'N/A' ? 'na' : 'no')}</td>
+          <td>${pill(r.spiffStatus, r.spiffStatus === 'Qualified' ? 'yes' : r.spiffStatus === 'N/A' ? 'na' : 'no')}</td>
+        </tr>`;
+      }
+
+      if (isProd) {
+        return `<tr class="${rowClass}" data-empid="${r.id}">
+          <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
+          <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
+          <td>${r.totalCalls}</td>
+        </tr>`;
+      }
+
+      return `<tr class="${rowClass}" data-empid="${r.id}">
+        <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+        <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
+        <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
+        <td>${secondsToHMS(r.callTimeSeconds)}</td>
+        <td>${r.totalCalls}</td>
+        <td>${salesSelectHTML(r.sales)}</td>
+      </tr>`;
+    }).join('');
+
+    const headers = mode === 'eom'
+      ? (isProd
+        ? '<tr><th>Name</th><th>Working Days</th><th>Avg Calls KPI Status</th><th>Daily Avg Total Calls</th></tr>'
+        : '<tr><th>Name</th><th>Working Days</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Daily Avg Total Calls</th><th>Sales</th><th>Spiff</th></tr>')
+      : (isProd
+        ? '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Total Calls</th></tr>'
+        : '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Call Time</th><th>Total Calls</th><th>With Sales</th></tr>');
+
+    return `<h3>${role}s</h3><div style="overflow:auto"><table><thead>${headers}</thead><tbody>${body}</tbody></table></div><br>`;
+  }).join('') || '<div class="notice">No data to show yet.</div>';
+}
+function refreshDailyRender() {
+  dailyResults = dailyResults.map(calcDailyStatus);
+  renderGroupedTables('dailyTables', dailyResults, 'daily');
+  updateSummary(dailyResults);
+  $('exportDailyBtn').disabled = !dailyResults.length;
+}
+$('dailyTables').addEventListener('change', (e) => {
+  const tr = e.target.closest('tr[data-empid]');
+  if (!tr) return;
+  const id = tr.dataset.empid;
+  const item = dailyResults.find(r => r.id === id);
+  if (!item) return;
+  if (e.target.dataset.dailyStatus) item.dailyStatus = e.target.value;
+  if (e.target.dataset.salesStatus) item.sales = e.target.value;
+  if (item.dailyStatus !== 'Working') item.sales = 'N/A';
+  if (item.dailyStatus === 'Working' && item.sales === 'N/A') item.sales = 'NO';
+  refreshDailyRender();
+});
+
+$('processBtn').addEventListener('click', async () => {
+  try {
+    showMsg('uploadMsg', '');
+    const file = $('fileInput').files[0];
+    if (!file) throw new Error('Please choose an Excel or CSV file first.');
+    if (!activeEmployees().length) throw new Error('No active employees found. Add employees or load defaults first.');
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+    dailyResults = aggregateRows(rows);
+    refreshDailyRender();
+    await loadEOM();
+    $('saveReportBtn').disabled = false;
+    showMsg('uploadMsg', `Processed ${rows.length - 1} call log rows. Review statuses and sales before saving final report.`);
+  } catch (err) {
+    showMsg('uploadMsg', err.message || String(err), true);
+  }
+});
+
+async function saveDailyReport() {
+  if (!dailyResults.length) return;
+  const date = $('reportDate').value || todayISO();
+  const ref = doc(db, 'dailyReports', date);
+  const existing = await getDoc(ref);
+  if (existing.exists() && !confirm(`A final report already exists for ${date}. Replace it?`)) return;
+  const summary = agentSummary(dailyResults);
+  const payload = { date, employees: dailyResults, summary, savedAt: new Date().toISOString() };
+  await setDoc(ref, payload);
+  showMsg('uploadMsg', `Final daily report saved for ${date}.`);
+  await loadEOM();
+}
+$('saveReportBtn').addEventListener('click', saveDailyReport);
+
+async function loadReportsForMonth(month) {
+  const start = `${month}-01`;
+  const [y,m] = month.split('-').map(Number);
+  const end = new Date(y, m, 1).toISOString().slice(0,10);
+  const q = query(collection(db, 'dailyReports'), where('date', '>=', start), where('date', '<', end), orderBy('date'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+async function loadEOM() {
+  const month = ($('reportDate').value || todayISO()).slice(0,7);
+  const reports = await loadReportsForMonth(month);
+  eomResults = computeEOM(reports);
+  renderGroupedTables('eomTables', eomResults, 'eom');
+}
+function computeEOM(reports) {
+  const active = activeEmployees();
+  return active.map(emp => {
+    const rows = reports.flatMap(rep => (rep.employees || []).filter(r => r.id === emp.id && r.dailyStatus === 'Working'));
+    const workingDays = rows.length;
+    const avgCallTimeSeconds = workingDays ? rows.reduce((s,r) => s + (r.callTimeSeconds || 0), 0) / workingDays : 0;
+    const avgTotalCalls = workingDays ? rows.reduce((s,r) => s + (r.totalCalls || 0), 0) / workingDays : 0;
+    let avgCallTimeStatus = 'N/A';
+    if (workingDays) avgCallTimeStatus = emp.role === 'Prod Team' ? (avgTotalCalls >= PROD_CALL_GOAL ? 'Passed' : 'Failed') : (avgCallTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'Passed' : 'Failed');
+    const hasSale = rows.some(r => r.sales === 'YES');
+    const salesStatus = emp.role === 'Prod Team' ? 'N/A' : (hasSale ? 'With Sale' : 'No Sale');
+    const spiffStatus = emp.role === 'Prod Team' ? 'N/A' : (avgCallTimeStatus === 'Passed' && hasSale ? 'Qualified' : 'Not Qualified');
+    return { ...emp, workingDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, spiffStatus };
   });
 }
 
-// ════════════════════════════════════════════
-// KPI PROCESSING
-// ════════════════════════════════════════════
-function buildDailyKPI(rows, empList) {
-  // Map extension → employee
-  const extMap = {};
-  for (const emp of empList) {
-    for (const ext of (emp.extensions||[])) {
-      extMap[String(ext)] = emp.id;
-    }
-  }
-
-  // Aggregate per employee
-  const agg = {}; // empId → { totalSecs, totalCalls, outboundCalls }
-  for (const emp of empList) {
-    agg[emp.id] = { totalSecs: 0, totalCalls: 0, outboundCalls: 0 };
-  }
-
-  for (const row of rows) {
-    // Normalize column keys (case-insensitive)
-    const keys = Object.keys(row);
-    const getVal = (names) => {
-      for (const n of names) {
-        const k = keys.find(k => k.toLowerCase().replace(/[^a-z.]/g,'') === n.toLowerCase().replace(/[^a-z.]/g,''));
-        if (k !== undefined) return row[k];
-      }
-      return '';
-    };
-
-    const fromExt = String(getVal(['From Ext.','FromExt','from_ext','ext'])||'').trim();
-    const direction = String(getVal(['Direction','direction'])||'').trim().toLowerCase();
-    const durationRaw = getVal(['Duration','duration']);
-
-    const empId = extMap[fromExt];
-    if (!empId) continue;
-
-    const emp = empList.find(e => e.id === empId);
-    const isOutbound = direction.includes('outbound');
-    const isInbound = direction.includes('inbound');
-
-    // Duration parsing
-    let secs = 0;
-    if (durationRaw instanceof Date) {
-      secs = durationRaw.getHours()*3600 + durationRaw.getMinutes()*60 + durationRaw.getSeconds();
-    } else if (typeof durationRaw === 'string') {
-      const clean = durationRaw.trim();
-      if (clean && clean !== '--') {
-        const parts = clean.split(':').map(Number);
-        if (parts.length === 3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
-        else if (parts.length === 2) secs = parts[0]*60 + parts[1];
-      }
-    } else if (typeof durationRaw === 'number') {
-      // Excel stores time as fraction of day
-      secs = Math.round(durationRaw * 86400);
-    }
-
-    if (emp.role === 'prod') {
-      // Patrick: only outbound counts
-      if (isOutbound) agg[empId].outboundCalls++;
-    } else {
-      // All agents/supervisors: both directions for call time & count
-      agg[empId].totalCalls++;
-      agg[empId].totalSecs += secs;
-    }
-  }
-
-  // Build result rows
-  const results = [];
-  for (const emp of empList) {
-    const a = agg[emp.id] || { totalSecs:0, totalCalls:0, outboundCalls:0 };
-    let callTimeSecs = a.totalSecs;
-    let totalCalls = emp.role === 'prod' ? a.outboundCalls : a.totalCalls;
-    let kpiStatus = 'working';
-    let callTimeKPI = null;
-    let sales = 'NO';
-
-    if (emp.role === 'prod') {
-      callTimeKPI = totalCalls >= 350 ? 'pass' : 'fail';
-    } else {
-      callTimeKPI = callTimeSecs >= 5400 ? 'pass' : 'fail'; // 1:30:00 = 5400s
-    }
-
-    results.push({
-      empId: emp.id,
-      name: emp.name,
-      extensions: emp.extensions,
-      role: emp.role,
-      status: kpiStatus,
-      callTimeKPI,
-      callTimeSecs,
-      totalCalls,
-      sales,
-    });
-  }
-  return results;
+async function loadHistory() {
+  const month = $('historyMonth').value || currentMonth();
+  historyCache = await loadReportsForMonth(month);
+  renderHistory(historyCache);
 }
-
-// ════════════════════════════════════════════
-// RENDER DAILY TABLE
-// ════════════════════════════════════════════
-function renderDailyTable(data, dateVal) {
-  const d = new Date(dateVal + 'T00:00:00');
-  const label = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-  document.getElementById('dailyDateLabel').textContent = label;
-
-  const agents = data.filter(r => r.role === 'agent');
-  const supervisors = data.filter(r => r.role === 'supervisor');
-  const prod = data.filter(r => r.role === 'prod');
-
-  const agentsBody = document.getElementById('dailyAgentsBody');
-  const supBody = document.getElementById('dailySupBody');
-  const prodBody = document.getElementById('dailyProdBody');
-
-  agentsBody.innerHTML = agents.length
-    ? agents.map(r => buildDataRow(r, false)).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No agents found.</td></tr>';
-
-  supBody.innerHTML = supervisors.length
-    ? supervisors.map(r => buildDataRow(r, false)).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No supervisors found.</td></tr>';
-
-  prodBody.innerHTML = prod.length
-    ? prod.map(r => buildDataRow(r, true)).join('')
-    : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">No prod team found.</td></tr>';
-
-  updateTiles(data);
-}
-
-function buildDataRow(row, isProd) {
-  const extStr = (row.extensions||[]).join('/');
-  const nameDisplay = `<strong>${row.name}</strong> <span style="color:var(--text-muted);font-size:11px">(ext. ${extStr})</span>`;
-
-  const statusOptions = ['working','absent','on-leave','sick-leave','no-work-day'];
-  const statusLabels = { 'working':'Working','absent':'Absent','on-leave':'On Leave','sick-leave':'Sick Leave','no-work-day':'No Work Day' };
-  let statusSelect = `<select class="td-select" data-empid="${row.empId}" data-isprod="${isProd}" onchange="onStatusChange(this)">`;
-  for (const s of statusOptions) {
-    statusSelect += `<option value="${s}" ${row.status===s?'selected':''}>${statusLabels[s]}</option>`;
+function renderHistory(reports) {
+  if (!reports.length) {
+    $('historyTables').innerHTML = '<div class="notice">No saved daily reports found for this month.</div>';
+    return;
   }
-  statusSelect += '</select>';
-
-  const isSpecial = row.status !== 'working';
-
-  const kpiDisplay = isSpecial
-    ? `<span class="badge badge-na">N/A</span>`
-    : (row.callTimeKPI === 'pass' ? `<span class="badge badge-pass">Pass</span>` : `<span class="badge badge-fail">Failed</span>`);
-
-  const rowClass = isSpecial ? `row-${row.status}` : '';
-
-  if (isProd) {
-    const callsColor = row.callTimeKPI === 'pass' ? 'var(--pass)' : 'var(--fail)';
-    return `<tr class="${rowClass}" id="row-${row.empId}">
-      <td>${nameDisplay}</td>
-      <td>${statusSelect}</td>
-      <td>${isSpecial ? '<span class="badge badge-na">N/A</span>' : kpiDisplay}</td>
-      <td><strong style="color:${isSpecial ? 'var(--text-muted)' : callsColor}">${row.totalCalls}</strong></td>
-    </tr>`;
-  }
-
-  // Sales dropdown
-  let salesSelect = '';
-  if (isSpecial) {
-    salesSelect = `<select class="td-select sale-na" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)" disabled>
-      <option value="NA">N/A</option></select>`;
-  } else {
-    const saleClass = row.sales==='YES' ? 'sale-yes' : 'sale-no';
-    salesSelect = `<select class="td-select ${saleClass}" data-empid="${row.empId}" data-field="sales" onchange="onSaleChange(this)">
-      <option value="NO" ${row.sales==='NO'?'selected':''}>NO</option>
-      <option value="YES" ${row.sales==='YES'?'selected':''}>YES</option>
-    </select>`;
-  }
-
-  return `<tr class="${rowClass}" id="row-${row.empId}">
-    <td>${nameDisplay}</td>
-    <td>${statusSelect}</td>
-    <td>${kpiDisplay}</td>
-    <td><span class="time-mono">${secsToHMS(row.callTimeSecs)}</span></td>
-    <td>${row.totalCalls}</td>
-    <td>${salesSelect}</td>
-  </tr>`;
-}
-
-function onStatusChange(sel) {
-  const empId = sel.dataset.empid;
-  const isProd = sel.dataset.isprod === 'true';
-  const newStatus = sel.value;
-  const row = currentDailyData.find(r => r.empId === empId);
-  if (!row) return;
-  row.status = newStatus;
-  const tr = document.getElementById('row-' + empId);
-  if (tr) {
-    const tmp = document.createElement('tbody');
-    tmp.innerHTML = buildDataRow(row, isProd);
-    tr.replaceWith(tmp.firstChild);
-  }
-  updateTiles(currentDailyData);
-}
-
-function onSaleChange(sel) {
-  const empId = sel.dataset.empid;
-  const row = currentDailyData.find(r => r.empId === empId);
-  if (!row) return;
-  row.sales = sel.value;
-  // Recolor
-  sel.className = `td-select ${sel.value==='YES'?'sale-yes':'sale-no'}`;
-}
-
-function updateTiles(data) {
-  const agents = data.filter(r => r.role === 'agent');
-  let pass = 0, fail = 0, totalCalls = 0, totalSecs = 0;
-  for (const r of agents) {
-    if (r.status !== 'working') continue;
-    if (r.callTimeKPI === 'pass') pass++; else fail++;
-    totalCalls += r.totalCalls;
-    totalSecs += r.callTimeSecs;
-  }
-  document.getElementById('tilePass').textContent = pass;
-  document.getElementById('tileFail').textContent = fail;
-  document.getElementById('tileCalls').textContent = totalCalls;
-  document.getElementById('tileTime').textContent = secsToHMS(totalSecs);
-}
-
-// ════════════════════════════════════════════
-// SAVE / LOAD DAILY REPORT
-// ════════════════════════════════════════════
-async function saveDailyReport() {
-  if (!currentDate || !currentDailyData.length) { showToast('Nothing to save.', 'error'); return; }
-  const docData = {
-    date: currentDate,
-    savedAt: new Date().toISOString(),
-    rows: currentDailyData.map(r => ({
-      empId: r.empId,
-      name: r.name,
-      role: r.role,
-      extensions: r.extensions,
-      status: r.status,
-      callTimeKPI: r.callTimeKPI,
-      callTimeSecs: r.callTimeSecs,
-      totalCalls: r.totalCalls,
-      sales: r.sales,
-    }))
-  };
-  try {
-    await FS.setDoc(FS.doc(db, 'dailyReports', currentDate), docData);
-    showToast(`Report for ${currentDate} saved!`);
-    await refreshEOM();
-  } catch(e) {
-    showToast('Save failed: ' + e.message, 'error');
-  }
-}
-
-async function loadSelectedDate() {
-  const dateVal = document.getElementById('reportDate').value;
-  if (!dateVal) { showToast('Select a date first.', 'error'); return; }
-  await loadDailyForDate(dateVal);
-}
-
-async function loadDailyForDate(dateVal) {
-  if (!db) return;
-  try {
-    const snap = await FS.getDoc(FS.doc(db, 'dailyReports', dateVal));
-    if (snap.exists()) {
-      const data = snap.data();
-      currentDate = dateVal;
-      currentDailyData = data.rows;
-      renderDailyTable(data.rows, dateVal);
-      document.getElementById('saveBtn').disabled = false;
-      showAlert('processAlert', `Loaded saved report for ${dateVal}.`, true);
-    }
-  } catch(e) { /* silent */ }
-  await refreshEOM();
-}
-
-// ════════════════════════════════════════════
-// EOM
-// ════════════════════════════════════════════
-async function refreshEOM() {
-  if (!db) return;
-  const dateVal = document.getElementById('reportDate').value || formatDateInput(new Date());
-  const d = new Date(dateVal + 'T00:00:00');
-  const monthKey = formatMonthKey(d);
-  updateEOMDisplay(d);
-
-  try {
-    const snap = await FS.getDocs(FS.collection(db, 'dailyReports'));
-    const reports = snap.docs.map(d => d.data()).filter(r => r.date && r.date.startsWith(monthKey));
-    const daysCount = reports.length;
-    document.getElementById('eomDaysLabel').textContent = `${daysCount} saved day${daysCount!==1?'s':''} this month`;
-    buildEOMTables(reports, activeEmployees());
-  } catch(e) {
-    console.error(e);
-  }
-}
-
-function buildEOMTables(reports, empList) {
-  const agents = empList.filter(e => e.role === 'agent');
-  const supervisors = empList.filter(e => e.role === 'supervisor');
-  const prodTeam = empList.filter(e => e.role === 'prod');
-
-  buildEOMSection('eomAgentsBody', agents, reports, false);
-  buildEOMSection('eomSupBody', supervisors, reports, false);
-  buildEOMProdSection('eomProdBody', prodTeam, reports);
-}
-
-function buildEOMSection(tbodyId, empList, reports, isProd) {
-  const tbody = document.getElementById(tbodyId);
-  if (!empList.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No data.</td></tr>'; return; }
-
-  tbody.innerHTML = empList.map(emp => {
-    // Collect working days only
-    const workingRows = [];
-    for (const rep of reports) {
-      const row = (rep.rows||[]).find(r => r.empId === emp.id);
-      if (row && row.status === 'working') workingRows.push(row);
-    }
-    if (!workingRows.length) {
-      return `<tr><td><strong>${emp.name}</strong></td><td colspan="5" style="color:var(--text-muted)">No working days saved.</td></tr>`;
-    }
-    const totalSecs = workingRows.reduce((s,r) => s + (r.callTimeSecs||0), 0);
-    const avgSecs = totalSecs / workingRows.length;
-    const avgCalls = workingRows.reduce((s,r) => s + (r.totalCalls||0), 0) / workingRows.length;
-    const hasSale = workingRows.some(r => r.sales === 'YES');
-    const passCallTime = avgSecs >= 5400;
-    const spiff = passCallTime && hasSale;
-
-    return `<tr>
-      <td><strong>${emp.name}</strong></td>
-      <td class="time-mono">${secsToHMS(avgSecs)}</td>
-      <td>${passCallTime ? '<span class="badge badge-pass">Pass</span>' : '<span class="badge badge-fail">Failed</span>'}</td>
-      <td class="text-mono">${avgCalls.toFixed(1)}</td>
-      <td>${hasSale ? '<span class="badge badge-pass">With Sale</span>' : '<span class="badge" style="background:var(--surface2);color:var(--text-muted)">No Sale</span>'}</td>
-      <td><span class="badge ${spiff?'spiff-yes':'spiff-no'}">${spiff?'✅ Qualified':'❌ Not Qualified'}</span></td>
-    </tr>`;
+  const active = activeEmployees();
+  const dates = reports.map(r => r.date);
+  const rows = active.map(emp => {
+    const cells = dates.map(date => {
+      const rep = reports.find(r => r.date === date);
+      const r = (rep.employees || []).find(x => x.id === emp.id);
+      if (!r) return '<td></td>';
+      const label = r.dailyStatus !== 'Working' ? 'N/A' : `${r.kpiStatus}<br><span class="small">${secondsToHMS(r.callTimeSeconds)} | ${r.totalCalls} calls | Sales: ${r.sales}</span>`;
+      const cls = r.dailyStatus !== 'Working' ? 'na' : r.kpiStatus === 'Passed' ? 'pass' : 'fail';
+      return `<td>${pill(label, cls)}</td>`;
+    }).join('');
+    return `<tr><td>${emp.role}</td><td><strong>${emp.name}</strong></td>${cells}</tr>`;
   }).join('');
+  $('historyTables').innerHTML = `<div style="overflow:auto"><table><thead><tr><th>Role</th><th>Name</th>${dates.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+$('loadHistoryBtn').addEventListener('click', loadHistory);
 
-function buildEOMProdSection(tbodyId, empList, reports) {
-  const tbody = document.getElementById(tbodyId);
-  if (!empList.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">No data.</td></tr>'; return; }
-
-  tbody.innerHTML = empList.map(emp => {
-    const workingRows = [];
-    for (const rep of reports) {
-      const row = (rep.rows||[]).find(r => r.empId === emp.id);
-      if (row && row.status === 'working') workingRows.push(row);
-    }
-    if (!workingRows.length) {
-      return `<tr><td><strong>${emp.name}</strong></td><td colspan="4" style="color:var(--text-muted)">No working days saved.</td></tr>`;
-    }
-    const totalCalls = workingRows.reduce((s,r) => s + (r.totalCalls||0), 0);
-    const avgCalls = totalCalls / workingRows.length;
-    const daysPassed = workingRows.filter(r => r.callTimeKPI === 'pass').length;
-    const passKPI = avgCalls >= 350;
-
-    return `<tr>
-      <td><strong>${emp.name}</strong></td>
-      <td class="text-mono">${avgCalls.toFixed(1)}</td>
-      <td>${passKPI ? '<span class="badge badge-pass">Pass</span>' : '<span class="badge badge-fail">Failed</span>'}</td>
-      <td class="text-mono">${daysPassed}</td>
-      <td class="text-mono">${workingRows.length}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ════════════════════════════════════════════
-// EXPORT CSV
-// ════════════════════════════════════════════
-function exportCSV() {
-  if (!currentDailyData.length) { showToast('No data to export.', 'error'); return; }
-  const headers = ['Role','Name','Extensions','Status','Call Time KPI','Call Time','Total Calls','Sales'];
-  const rows = currentDailyData.map(r => [
-    r.role, r.name, (r.extensions||[]).join('/'),
-    r.status, r.status!=='working'?'N/A':r.callTimeKPI,
-    r.role==='prod'?'—':secsToHMS(r.callTimeSecs),
+$('exportDailyBtn').addEventListener('click', () => {
+  const rows = [['Name','Status','KPI Status','Call Time','Total Calls','With Sales']].concat(dailyResults.map(r => [
+    `${r.name} (${r.extensions.join('/')})`,
+    r.dailyStatus,
+    r.kpiStatus,
+    r.role === 'Prod Team' ? '' : secondsToHMS(r.callTimeSeconds),
     r.totalCalls,
-    r.role==='prod'?'—':r.sales
-  ]);
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `kpi_${currentDate||'export'}.csv`;
-  a.click();
+    r.role === 'Prod Team' ? '' : r.sales
+  ]));
+  downloadCSV(`daily-kpi-${$('reportDate').value || todayISO()}.csv`, rows);
+});
+$('exportEomBtn').addEventListener('click', async () => {
+  if (!eomResults.length) await loadEOM();
+  const rows = [['Name','Working Days','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff']].concat(eomResults.map(r => [
+    `${r.name} (${r.extensions.join('/')})`,
+    r.workingDays,
+    r.avgCallTimeStatus,
+    r.role === 'Prod Team' ? '' : secondsToHMS(r.avgCallTimeSeconds),
+    Math.round(r.avgTotalCalls),
+    r.role === 'Prod Team' ? '' : r.salesStatus,
+    r.role === 'Prod Team' ? '' : r.spiffStatus
+  ]));
+  downloadCSV(`eom-${($('reportDate').value || todayISO()).slice(0,7)}.csv`, rows);
+});
+$('exportHistoryBtn').addEventListener('click', async () => {
+  if (!historyCache.length) await loadHistory();
+  const rows = [['Date','Role','Name','Status','KPI Status','Call Time','Total Calls','With Sales']];
+  historyCache.forEach(rep => (rep.employees || []).forEach(r => rows.push([rep.date, r.role, r.name, r.dailyStatus, r.kpiStatus, secondsToHMS(r.callTimeSeconds), r.totalCalls, r.sales])));
+  downloadCSV(`monthly-history-${$('historyMonth').value || currentMonth()}.csv`, rows);
+});
+
+for (const btn of document.querySelectorAll('.nav-button')) {
+  btn.addEventListener('click', async () => {
+    document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $(btn.dataset.page).classList.add('active');
+    if (btn.dataset.page === 'kpiPage') await loadEOM();
+    if (btn.dataset.page === 'historyPage') await loadHistory();
+  });
 }
 
-// ════════════════════════════════════════════
-// HISTORY PAGE
-// ════════════════════════════════════════════
-function updateHistoryMonthLabel() {
-  document.getElementById('historyMonthLabel').textContent = formatMonthYear(historyMonth);
-}
-
-function changeHistoryMonth(dir) {
-  historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth() + dir, 1);
-  updateHistoryMonthLabel();
-  loadHistoryPage();
-}
-
-async function loadHistoryPage() {
-  if (!db) return;
-  const monthKey = formatMonthKey(historyMonth);
-  const container = document.getElementById('historyContent');
-  container.innerHTML = `<div class="empty-state"><span class="spinner"></span><p style="margin-top:12px">Loading…</p></div>`;
-
-  try {
-    const snap = await FS.getDocs(FS.collection(db, 'dailyReports'));
-    const reports = snap.docs.map(d => d.data()).filter(r => r.date && r.date.startsWith(monthKey));
-
-    if (!reports.length) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><p>No saved reports for ${formatMonthYear(historyMonth)}.</p></div>`;
-      return;
-    }
-
-    // Get all dates in the month that have reports
-    const savedDates = reports.map(r => r.date).sort();
-    const empList = activeEmployees();
-
-    // Group dates by week (Mon–Sun)
-    const weeks = groupDatesByWeek(savedDates, historyMonth);
-    let html = '';
-
-    const sections = [
-      { label: 'Agents', cls: 'agents', empList: empList.filter(e=>e.role==='agent') },
-      { label: 'Supervisors', cls: 'supervisors', empList: empList.filter(e=>e.role==='supervisor') },
-      { label: 'Prod Team', cls: 'prod', empList: empList.filter(e=>e.role==='prod') },
-    ];
-
-    for (const week of weeks) {
-      if (!week.dates.length) continue;
-      html += `<div class="history-week-block">
-        <div class="week-label">Week of ${week.label}</div>
-        <div class="history-scroll">`;
-
-      for (const section of sections) {
-        if (!section.empList.length) continue;
-        html += buildHistoryWeekTable(week.dates, section, reports);
-      }
-      html += `</div></div>`;
-    }
-
-    container.innerHTML = html || `<div class="empty-state"><div class="empty-state-icon">📭</div><p>No data.</p></div>`;
-  } catch(e) {
-    container.innerHTML = `<div class="empty-state"><p style="color:var(--fail)">Error loading history: ${e.message}</p></div>`;
-  }
-}
-
-function groupDatesByWeek(dates, monthDate) {
-  const year = monthDate.getFullYear();
-  const month = monthDate.getMonth();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-
-  // Find all Mon-Sun weeks that overlap with the month
-  const weeks = [];
-  let d = new Date(year, month, 1);
-  // Go to Monday of the first week
-  const dayOfWeek = d.getDay();
-  const offsetToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  d = new Date(year, month, 1 + offsetToMon);
-
-  while (d.getMonth() <= month || (d.getFullYear() === year && d.getMonth() < month+1)) {
-    const weekDates = [];
-    const weekStart = new Date(d);
-    for (let i = 0; i < 7; i++) {
-      const wd = new Date(d);
-      wd.setDate(d.getDate() + i);
-      const dateStr = formatDateInput(wd);
-      if (wd.getMonth() === month && dates.includes(dateStr)) {
-        weekDates.push({ date: dateStr, label: wd.toLocaleDateString('en-US', { month:'short', day:'numeric' }), dayName: wd.toLocaleDateString('en-US', { weekday:'short' }) });
-      }
-    }
-    if (weekDates.length) {
-      weeks.push({
-        label: weekStart.toLocaleDateString('en-US', { month:'short', day:'numeric' }),
-        dates: weekDates
-      });
-    }
-    d.setDate(d.getDate() + 7);
-    if (d.getMonth() > month && d.getFullYear() >= year) break;
-  }
-  return weeks;
-}
-
-function buildHistoryWeekTable(dates, section, reports) {
-  const isProd = section.cls === 'prod';
-
-  // Header: section label spanning all
-  let html = `<table class="history-table" style="margin-bottom:12px">
-    <thead>
-      <tr>
-        <th class="agent-col" rowspan="2" style="vertical-align:bottom">${section.label}</th>`;
-
-  for (const d of dates) {
-    const colSpan = isProd ? 2 : 3;
-    html += `<th colspan="${colSpan}" class="day-header">${d.dayName} ${d.label}</th>`;
-  }
-  html += `</tr><tr>`;
-
-  for (const d of dates) {
-    html += `<th>Status</th><th>Calls</th>`;
-    if (!isProd) html += `<th>Call Time</th>`;
-  }
-  html += `</tr></thead><tbody>`;
-
-  for (const emp of section.empList) {
-    html += `<tr><td class="agent-name-cell">${emp.name}</td>`;
-    for (const d of dates) {
-      const report = reports.find(r => r.date === d.date);
-      const row = report ? (report.rows||[]).find(r => r.empId === emp.id) : null;
-
-      if (!row) {
-        html += `<td class="empty-cell">—</td><td class="empty-cell">—</td>`;
-        if (!isProd) html += `<td class="empty-cell">—</td>`;
-        continue;
-      }
-
-      const isSpecial = row.status !== 'working';
-      const statusCls = isSpecial ? 'na-cell' : (row.callTimeKPI === 'pass' ? 'pass-cell' : 'fail-cell');
-      const statusLabel = isSpecial ? row.status.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : (row.callTimeKPI === 'pass' ? 'Pass' : 'Failed');
-
-      html += `<td class="${statusCls}">${statusLabel}</td>`;
-
-      if (isProd) {
-        html += `<td class="calls-cell">${row.totalCalls}</td>`;
-      } else {
-        html += `<td class="calls-cell">${row.totalCalls}</td>`;
-        html += `<td class="time-cell">${isSpecial ? '—' : secsToHMS(row.callTimeSecs)}</td>`;
-      }
-    }
-    html += `</tr>`;
-  }
-
-  html += `</tbody></table>`;
-  return html;
-}
-</script>
-
-<!-- Firebase loaded AFTER initApp is defined so window.initApp exists when module runs -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyC9qWhYIZ61cx8ug9Awb-j1in8UwRpSdUc",
-    authDomain: "pristine-call-logs.firebaseapp.com",
-    projectId: "pristine-call-logs",
-    storageBucket: "pristine-call-logs.firebasestorage.app",
-    messagingSenderId: "128525155487",
-    appId: "1:128525155487:web:94c92453fde7fd749f76aa"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  window._db = db;
-  window._firestore = { doc, setDoc, getDoc, collection, getDocs, deleteDoc, query, orderBy };
-  // initApp is now guaranteed to exist since regular script already ran
-  window.initApp();
+const employeesLoaded = await loadEmployees();
+if (employeesLoaded && !employees.length) showMsg('employeeMsg', 'No employees found yet. Click Load Default Employees to initialize your team list.');
+try { await loadEOM(); } catch (err) { console.warn('EOM could not be loaded yet:', err); }
 </script>
 </body>
 </html>
