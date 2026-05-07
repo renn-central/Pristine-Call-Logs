@@ -123,8 +123,8 @@
     .spiff-qualified-row td { background: var(--green) !important; }
     .history-week { margin-bottom: 24px; }
     .history-week-title { margin: 4px 0 12px; color: var(--navy); font-size: 18px; }
-    .daily-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
-    .daily-card { background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+    .daily-card-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+    .daily-card { background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; width: 330px; flex: 0 0 330px; }
     .daily-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #edf4ff; border-bottom: 1px solid var(--line); padding: 12px 14px; }
     .daily-card-header strong { color: var(--navy); }
     .daily-card-body { padding: 12px; }
@@ -133,8 +133,10 @@
     .daily-card th, .daily-card td { font-size: 12px; padding: 7px 8px; }
     .cell-pass { background: var(--green) !important; color: var(--green-deep); font-weight: 800; }
     .cell-fail { background: var(--red) !important; color: var(--red-deep); font-weight: 800; }
+    .cell-na { background: var(--blue) !important; color: #1b5a9f; font-weight: 800; }
     .empty-day { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: #f8fbff; }
 
+    @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
       nav { display: flex; gap: 8px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -267,7 +269,7 @@ const DEFAULT_EMPLOYEES = [
   { role: 'Prod Team', name: 'Patrick', extensions: ['807'], status: 'active' }
 ];
 
-const DAILY_STATUSES = ['Working', 'Absent', 'On Leave', 'Sick Leave', 'No Work Day'];
+const DAILY_STATUSES = ['Working', 'Absent', 'On Leave'];
 const SALES_STATUSES = ['YES', 'NO', 'N/A'];
 const AGENT_CALL_TIME_GOAL_SECONDS = 90 * 60;
 const PROD_CALL_GOAL = 350;
@@ -550,19 +552,23 @@ function renderGroupedTables(containerId, data, mode='daily') {
         if (isProd) {
           return `<tr>
             <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
-            <td>${r.workingDays}</td>
             <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
             <td>${Math.round(r.avgTotalCalls)}</td>
+            <td>${r.workingDays || 0}</td>
+            <td>${r.absentDays || 0}</td>
+            <td>${r.onLeaveDays || 0}</td>
           </tr>`;
         }
         return `<tr class="${eomRowClass}">
           <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
-          <td>${r.workingDays}</td>
           <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
           <td>${Math.round(r.avgTotalCalls)}</td>
           <td>${pill(r.salesStatus, r.salesStatus === 'With Sale' ? 'yes' : r.salesStatus === 'N/A' ? 'na' : 'no')}</td>
           <td>${pill(r.spiffStatus, r.spiffStatus === 'Qualified' ? 'yes' : r.spiffStatus === 'N/A' ? 'na' : 'no')}</td>
+          <td>${r.workingDays || 0}</td>
+          <td>${r.absentDays || 0}</td>
+          <td>${r.onLeaveDays || 0}</td>
         </tr>`;
       }
 
@@ -587,8 +593,8 @@ function renderGroupedTables(containerId, data, mode='daily') {
 
     const headers = mode === 'eom'
       ? (isProd
-        ? '<tr><th>Name</th><th>Working Days</th><th>Avg Calls KPI Status</th><th>Daily Avg Total Calls</th></tr>'
-        : '<tr><th>Name</th><th>Working Days</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Daily Avg Total Calls</th><th>Sales</th><th>Spiff</th></tr>')
+        ? '<tr><th>Name</th><th>Avg Calls KPI Status</th><th>Daily Avg Total Calls</th><th>Working Days</th><th>Absent Days</th><th>On Leave Days</th></tr>'
+        : '<tr><th>Name</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Daily Avg Total Calls</th><th>Sales</th><th>Spiff</th><th>Working Days</th><th>Absent Days</th><th>On Leave Days</th></tr>')
       : (isProd
         ? '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Total Calls</th></tr>'
         : '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Call Time</th><th>Total Calls</th><th>With Sales</th></tr>');
@@ -667,8 +673,12 @@ async function loadEOM() {
 function computeEOM(reports) {
   const active = activeEmployees();
   return active.map(emp => {
-    const rows = reports.flatMap(rep => (rep.employees || []).filter(r => r.id === emp.id && r.dailyStatus === 'Working'));
+    const allRows = reports.flatMap(rep => (rep.employees || []).filter(r => r.id === emp.id));
+    const rows = allRows.filter(r => r.dailyStatus === 'Working');
     const workingDays = rows.length;
+    const absentDays = allRows.filter(r => r.dailyStatus === 'Absent').length;
+    const onLeaveDays = allRows.filter(r => r.dailyStatus === 'On Leave').length;
+
     const avgCallTimeSeconds = workingDays ? rows.reduce((s,r) => s + (r.callTimeSeconds || 0), 0) / workingDays : 0;
     const avgTotalCalls = workingDays ? rows.reduce((s,r) => s + (r.totalCalls || 0), 0) / workingDays : 0;
     let avgCallTimeStatus = 'N/A';
@@ -676,7 +686,7 @@ function computeEOM(reports) {
     const hasSale = rows.some(r => r.sales === 'YES');
     const salesStatus = emp.role === 'Prod Team' ? 'N/A' : (hasSale ? 'With Sale' : 'No Sale');
     const spiffStatus = emp.role === 'Prod Team' ? 'N/A' : (avgCallTimeStatus === 'Passed' && hasSale ? 'Qualified' : 'Not Qualified');
-    return { ...emp, workingDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, spiffStatus };
+    return { ...emp, workingDays, absentDays, onLeaveDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, spiffStatus };
   });
 }
 
@@ -724,22 +734,37 @@ function formatLongDate(iso) {
 }
 function historyEmployeeRow(r) {
   const isWorking = r.dailyStatus === 'Working';
-  const timeClass = isWorking && r.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'cell-pass' : 'cell-fail';
-  const salesClass = isWorking && r.sales === 'YES' ? 'cell-pass' : 'cell-fail';
+  const isAbsent = r.dailyStatus === 'Absent';
+  const isLeave = r.dailyStatus === 'On Leave';
+
+  const timeClass = isWorking
+    ? (r.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'cell-pass' : 'cell-fail')
+    : 'cell-na';
+
+  const salesClass = isWorking
+    ? (r.sales === 'YES' ? 'cell-pass' : 'cell-fail')
+    : 'cell-na';
+
+  const statusText = isAbsent ? 'Absent' : isLeave ? 'On Leave' : 'N/A';
+
   return `<tr>
     <td><strong>${r.name}</strong></td>
-    <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : 'N/A'}</td>
-    <td>${isWorking ? r.totalCalls : 'N/A'}</td>
-    <td class="${salesClass}">${isWorking ? r.sales : 'N/A'}</td>
+    <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : statusText}</td>
+    <td>${isWorking ? r.totalCalls : statusText}</td>
+    <td class="${salesClass}">${isWorking ? r.sales : statusText}</td>
   </tr>`;
 }
 function historyProdRow(r) {
   const isWorking = r.dailyStatus === 'Working';
   const passed = isWorking && r.totalCalls >= PROD_CALL_GOAL;
+  const statusText = r.dailyStatus === 'Absent' ? 'Absent' : r.dailyStatus === 'On Leave' ? 'On Leave' : 'N/A';
+
   return `<tr>
     <td><strong>${r.name}</strong></td>
-    <td>${isWorking ? r.totalCalls : 'N/A'}</td>
-    <td class="${passed ? 'cell-pass' : 'cell-fail'}">${isWorking ? (passed ? 'Pass' : 'Fail') : 'N/A'}</td>
+    <td>${isWorking ? r.totalCalls : statusText}</td>
+    <td class="${isWorking ? (passed ? 'cell-pass' : 'cell-fail') : 'cell-na'}">
+      ${isWorking ? (passed ? 'Pass' : 'Fail') : statusText}
+    </td>
   </tr>`;
 }
 function dailyHistoryCard(date, report) {
@@ -817,14 +842,16 @@ $('exportDailyBtn').addEventListener('click', () => {
 });
 $('exportEomBtn').addEventListener('click', async () => {
   if (!eomResults.length) await loadEOM();
-  const rows = [['Name','Working Days','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff']].concat(eomResults.map(r => [
+  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff','Working Days','Absent Days','On Leave Days']].concat(eomResults.map(r => [
     `${r.name} (${r.extensions.join('/')})`,
-    r.workingDays,
     r.avgCallTimeStatus,
     r.role === 'Prod Team' ? '' : secondsToHMS(r.avgCallTimeSeconds),
     Math.round(r.avgTotalCalls),
     r.role === 'Prod Team' ? '' : r.salesStatus,
-    r.role === 'Prod Team' ? '' : r.spiffStatus
+    r.role === 'Prod Team' ? '' : r.spiffStatus,
+    r.workingDays || 0,
+    r.absentDays || 0,
+    r.onLeaveDays || 0
   ]));
   downloadCSV(`eom-${($('reportDate').value || todayISO()).slice(0,7)}.csv`, rows);
 });
