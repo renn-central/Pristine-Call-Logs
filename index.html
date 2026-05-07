@@ -134,6 +134,12 @@
     .cell-pass { background: var(--green) !important; color: var(--green-deep); font-weight: 800; }
     .cell-fail { background: var(--red) !important; color: var(--red-deep); font-weight: 800; }
     .cell-na { background: var(--blue) !important; color: #1b5a9f; font-weight: 800; }
+
+    .eom-table th:not(:first-child),
+    .eom-table td:not(:first-child) {
+        text-align: center;
+    }
+
     .empty-day { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: #f8fbff; }
 
     @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
