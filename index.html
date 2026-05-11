@@ -134,6 +134,9 @@
     .cell-pass { background: var(--green) !important; color: var(--green-deep); font-weight: 800; }
     .cell-fail { background: var(--red) !important; color: var(--red-deep); font-weight: 800; }
     .cell-na { background: var(--blue) !important; color: #1b5a9f; font-weight: 800; }
+    .history-absent { background: #fed7aa !important; color: #9a3412; font-weight: 800; }
+    .history-unpaid-leave { background: #bfdbfe !important; color: #1d4ed8; font-weight: 800; }
+    .history-paid-leave { background: #e9d5ff !important; color: #7e22ce; font-weight: 800; }
 
     .eom-table th:not(:first-child),
     .eom-table td:not(:first-child) {
@@ -566,9 +569,9 @@ function renderGroupedTables(containerId, data, mode='daily') {
             <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
             <td>${Math.round(r.avgTotalCalls)}</td>
             <td>${r.workingDays || 0}</td>
-            <td>${r.absentDays || 0}</td>
-            <td>${r.paidLeaveDays || 0}</td>
-            <td>${r.unpaidLeaveDays || 0}</td>
+            <td>${exceptionCount(r.absentDays)}</td>
+            <td>${exceptionCount(r.paidLeaveDays)}</td>
+            <td>${exceptionCount(r.unpaidLeaveDays)}</td>
           </tr>`;
         }
         return `<tr class="${eomRowClass}">
@@ -579,9 +582,9 @@ function renderGroupedTables(containerId, data, mode='daily') {
           <td>${pill(r.salesStatus, r.salesStatus === 'With Sale' ? 'yes' : r.salesStatus === 'N/A' ? 'na' : 'no')}</td>
           <td>${pill(r.spiffStatus, r.spiffStatus === 'Qualified' ? 'yes' : r.spiffStatus === 'N/A' ? 'na' : 'no')}</td>
           <td>${r.workingDays || 0}</td>
-          <td>${r.absentDays || 0}</td>
-          <td>${r.paidLeaveDays || 0}</td>
-          <td>${r.unpaidLeaveDays || 0}</td>
+          <td>${exceptionCount(r.absentDays)}</td>
+          <td>${exceptionCount(r.paidLeaveDays)}</td>
+          <td>${exceptionCount(r.unpaidLeaveDays)}</td>
         </tr>`;
       }
 
@@ -746,23 +749,33 @@ function monthWorkingWeeks(month) {
 function formatLongDate(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
+function historyStatusClass(status) {
+  if (status === 'Absent') return 'history-absent';
+  if (status === 'On_Leave') return 'history-unpaid-leave';
+  if (status === 'On Leave') return 'history-paid-leave';
+  return 'cell-na';
+}
+function exceptionCount(value) {
+  return value ? value : '';
+}
 function historyEmployeeRow(r) {
   const isWorking = r.dailyStatus === 'Working';
+  const nonWorkingClass = historyStatusClass(r.dailyStatus);
 
   const timeClass = isWorking
     ? (r.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'cell-pass' : 'cell-fail')
-    : 'cell-na';
+    : nonWorkingClass;
 
   const salesClass = isWorking
     ? (r.sales === 'YES' ? 'cell-pass' : 'cell-fail')
-    : 'cell-na';
+    : nonWorkingClass;
 
   const statusText = displayDailyStatus(r.dailyStatus);
 
   return `<tr>
     <td><strong>${r.name}</strong></td>
     <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : statusText}</td>
-    <td class="${isWorking ? '' : 'cell-na'}">${isWorking ? r.totalCalls : statusText}</td>
+    <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
     <td class="${salesClass}">${isWorking ? r.sales : statusText}</td>
   </tr>`;
 }
@@ -770,11 +783,12 @@ function historyProdRow(r) {
   const isWorking = r.dailyStatus === 'Working';
   const passed = isWorking && r.totalCalls >= PROD_CALL_GOAL;
   const statusText = displayDailyStatus(r.dailyStatus);
+  const nonWorkingClass = historyStatusClass(r.dailyStatus);
 
   return `<tr>
     <td><strong>${r.name}</strong></td>
-    <td class="${isWorking ? '' : 'cell-na'}">${isWorking ? r.totalCalls : statusText}</td>
-    <td class="${isWorking ? (passed ? 'cell-pass' : 'cell-fail') : 'cell-na'}">
+    <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
+    <td class="${isWorking ? (passed ? 'cell-pass' : 'cell-fail') : nonWorkingClass}">
       ${isWorking ? (passed ? 'Pass' : 'Fail') : statusText}
     </td>
   </tr>`;
