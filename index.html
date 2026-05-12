@@ -143,6 +143,11 @@
         text-align: center;
     }
 
+    .daily-card th:not(:first-child),
+    .daily-card td:not(:first-child) {
+        text-align: center;
+    }
+
     .empty-day { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: #f8fbff; }
 
     @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
@@ -164,8 +169,8 @@
   <div class="app">
     <nav>
       <button class="nav-button active" data-page="employeesPage">Employee List</button>
-      <button class="nav-button" data-page="kpiPage">Daily KPI & EOM</button>
-      <button class="nav-button" data-page="historyPage">Daily Stats History</button>
+      <button class="nav-button" data-page="kpiPage">Daily KPI Processor</button>
+      <button class="nav-button" data-page="historyPage">EOM & Daily Stats History</button>
     </nav>
 
     <main>
@@ -208,7 +213,6 @@
             <button id="processBtn" class="primary">Process File</button>
             <button id="saveReportBtn" class="secondary" disabled>Save Daily Report</button>
             <button id="exportDailyBtn" class="secondary" disabled>Export Daily CSV</button>
-            <button id="exportEomBtn" class="secondary">Export EOM CSV</button>
           </div>
           <div id="uploadMsg"></div>
         </div>
@@ -225,23 +229,31 @@
           <div id="dailyTables"></div>
         </div>
 
-        <div class="card">
-          <h3>EOM Running Stats</h3>
-          <div id="eomTables"></div>
-        </div>
       </section>
 
       <section id="historyPage" class="page">
         <div class="card">
-          <div class="section-title">
-            <h2>Daily Stats History</h2>
-            <button id="exportHistoryBtn" class="secondary">Export Monthly History CSV</button>
-          </div>
+          <h2>EOM & Daily Stats History</h2>
           <div class="toolbar">
             <input id="historyMonth" type="month" />
             <button id="loadHistoryBtn" class="primary">Load Month</button>
           </div>
           <div id="historyMsg"></div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">
+            <h3>EOM Running Stats</h3>
+            <button id="exportEomBtn" class="secondary">Export EOM CSV</button>
+          </div>
+          <div id="eomTablesHistory"></div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">
+            <h3>Daily Stats History</h3>
+            <button id="exportHistoryBtn" class="secondary">Export Monthly History CSV</button>
+          </div>
           <div id="historyTables"></div>
         </div>
       </section>
@@ -650,7 +662,6 @@ $('processBtn').addEventListener('click', async () => {
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
     dailyResults = aggregateRows(rows);
     refreshDailyRender();
-    await loadEOM();
     $('saveReportBtn').disabled = false;
     showMsg('uploadMsg', `Processed ${rows.length - 1} call log rows. Review statuses and sales before saving final report.`);
   } catch (err) {
@@ -668,7 +679,6 @@ async function saveDailyReport() {
   const payload = { date, employees: dailyResults, summary, savedAt: new Date().toISOString() };
   await setDoc(ref, payload);
   showMsg('uploadMsg', `Final daily report saved for ${date}.`);
-  await loadEOM();
 }
 $('saveReportBtn').addEventListener('click', saveDailyReport);
 
@@ -684,7 +694,6 @@ async function loadEOM() {
   const month = ($('reportDate').value || todayISO()).slice(0,7);
   const reports = await loadReportsForMonth(month);
   eomResults = computeEOM(reports);
-  renderGroupedTables('eomTables', eomResults, 'eom');
 }
 function computeEOM(reports) {
   const active = activeEmployees();
@@ -709,8 +718,15 @@ function computeEOM(reports) {
 
 async function loadHistory() {
   const month = $('historyMonth').value || currentMonth();
-  historyCache = await loadReportsForMonth(month);
-  renderHistory(historyCache);
+  try {
+    showMsg('historyMsg', '');
+    historyCache = await loadReportsForMonth(month);
+    const historyEomResults = computeEOM(historyCache);
+    renderGroupedTables('eomTablesHistory', historyEomResults, 'eom');
+    renderHistory(historyCache);
+  } catch (err) {
+    showMsg('historyMsg', firebaseErrorMessage(err), true);
+  }
 }
 
 function localDateISO(d) {
@@ -849,7 +865,6 @@ $('historyTables').addEventListener('click', async (e) => {
     await deleteDoc(doc(db, 'dailyReports', date));
     showMsg('historyMsg', `Deleted saved report for ${date}.`);
     await loadHistory();
-    if (($('reportDate').value || '').slice(0,7) === date.slice(0,7)) await loadEOM();
   } catch (err) {
     showMsg('historyMsg', firebaseErrorMessage(err), true);
   }
@@ -867,8 +882,10 @@ $('exportDailyBtn').addEventListener('click', () => {
   downloadCSV(`daily-kpi-${$('reportDate').value || todayISO()}.csv`, rows);
 });
 $('exportEomBtn').addEventListener('click', async () => {
-  if (!eomResults.length) await loadEOM();
-  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff','Working Days','Absent Days','Paid Leave Days','Unpaid Leave Days']].concat(eomResults.map(r => [
+  const month = $('historyMonth').value || currentMonth();
+  const reports = await loadReportsForMonth(month);
+  const results = computeEOM(reports);
+  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff','Working Days','Absent Days','Paid Leave Days','Unpaid Leave Days']].concat(results.map(r => [
     `${r.name} (${r.extensions.join('/')})`,
     r.avgCallTimeStatus,
     r.role === 'Prod Team' ? '' : secondsToHMS(r.avgCallTimeSeconds),
@@ -880,7 +897,7 @@ $('exportEomBtn').addEventListener('click', async () => {
     r.paidLeaveDays || 0,
     r.unpaidLeaveDays || 0
   ]));
-  downloadCSV(`eom-${($('reportDate').value || todayISO()).slice(0,7)}.csv`, rows);
+  downloadCSV(`eom-${month}.csv`, rows);
 });
 $('exportHistoryBtn').addEventListener('click', async () => {
   if (!historyCache.length) await loadHistory();
@@ -895,14 +912,13 @@ for (const btn of document.querySelectorAll('.nav-button')) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     $(btn.dataset.page).classList.add('active');
-    if (btn.dataset.page === 'kpiPage') await loadEOM();
     if (btn.dataset.page === 'historyPage') await loadHistory();
   });
 }
 
 const employeesLoaded = await loadEmployees();
 if (employeesLoaded && !employees.length) showMsg('employeeMsg', 'No employees found yet. Click Load Default Employees to initialize your team list.');
-try { await loadEOM(); } catch (err) { console.warn('EOM could not be loaded yet:', err); }
+try { await loadHistory(); } catch (err) { console.warn('History could not be loaded yet:', err); }
 </script>
 </body>
 </html>
