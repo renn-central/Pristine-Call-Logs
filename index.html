@@ -150,6 +150,47 @@
 
     .empty-day { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: #f8fbff; }
 
+    /* Avatars & photo upload */
+    .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); flex: 0 0 auto; }
+    .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex: 0 0 auto; }
+    .avatar-lg { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid white; box-shadow: var(--shadow); }
+    .avatar-placeholder-lg { width: 72px; height: 72px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; border: 3px solid white; box-shadow: var(--shadow); }
+    .photo-preview-wrap { display: flex; align-items: center; gap: 10px; }
+    .emp-name-cell { display: flex; align-items: center; gap: 8px; }
+
+    /* Sales amount entry */
+    .sales-cell { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+    .sale-amount-input { width: 110px; padding: 8px 9px; }
+
+    /* No Work Day + footer buttons */
+    .no-work-day-card .daily-card-header { background: #fff4cc; }
+    .no-work-day-body { padding: 22px 12px; text-align: center; color: #8a6100; font-weight: 800; font-size: 15px; }
+    .daily-card-footer { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); }
+    .daily-card-footer button { width: 100%; }
+
+    /* End of Week */
+    .eow-card .emp-name-cell { justify-content: flex-start; }
+
+    /* Sales Leaderboard */
+    .podium { display: flex; align-items: flex-end; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 6px 0 26px; }
+    .podium-slot { background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px; text-align: center; width: 180px; }
+    .podium-slot.rank-1 { order: 2; padding-top: 26px; border-color: #f5d061; background: linear-gradient(180deg, #fff9e6, #ffffff); }
+    .podium-slot.rank-2 { order: 1; }
+    .podium-slot.rank-3 { order: 3; }
+    .podium-medal { font-size: 26px; }
+    .podium-slot .avatar-lg, .podium-slot .avatar-placeholder-lg { margin: 8px auto 0; }
+    .podium-name { font-weight: 800; margin-top: 8px; color: var(--navy); }
+    .podium-amount { font-size: 22px; font-weight: 800; color: var(--green-deep); margin-top: 4px; }
+    .podium-empty { color: var(--muted); font-style: italic; margin-top: 10px; }
+    .new-qualifier-badge { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; background: var(--green); color: var(--green-deep); font-size: 11px; font-weight: 800; }
+    .rank-move-up { color: var(--green-deep); font-weight: 800; }
+    .rank-move-down { color: var(--red-deep); font-weight: 800; }
+    .rank-move-new { color: #8a6100; font-weight: 800; }
+    .progress-track { background: #eef1f6; border-radius: 999px; height: 10px; width: 100%; overflow: hidden; margin-top: 6px; }
+    .progress-fill { background: linear-gradient(90deg, var(--blue-deep), var(--green-deep)); height: 100%; }
+    .almost-there-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white; margin-bottom: 10px; }
+    .almost-there-info { flex: 1; }
+
     @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
@@ -171,6 +212,7 @@
       <button class="nav-button active" data-page="employeesPage">Employee List</button>
       <button class="nav-button" data-page="kpiPage">Daily KPI Processor</button>
       <button class="nav-button" data-page="historyPage">EOM & Daily Stats History</button>
+      <button class="nav-button" data-page="salesPage">Sales Leaderboard</button>
     </nav>
 
     <main>
@@ -183,6 +225,11 @@
           <div class="notice">Only active employees appear in Daily KPI and EOM reports. Extensions can be comma-separated, for example <strong>815,824</strong>.</div>
           <form id="employeeForm" class="toolbar">
             <input id="empEditId" type="hidden" />
+            <input id="empPhotoBase64" type="hidden" />
+            <div class="photo-preview-wrap">
+              <span id="empPhotoPreviewWrap"></span>
+              <input id="empPhotoFile" type="file" accept="image/*" title="Employee photo (shown on the Sales Leaderboard)" />
+            </div>
             <input id="empName" placeholder="Employee name" required />
             <select id="empRole" required>
               <option value="Agent">Agent</option>
@@ -257,6 +304,30 @@
           <div id="historyTables"></div>
         </div>
       </section>
+
+      <section id="salesPage" class="page">
+        <div class="card">
+          <div class="section-title">
+            <h2>Sales Leaderboard</h2>
+          </div>
+          <div class="notice">Screenshot-ready weekly sales rankings for the group chat announcement. Agents need $5,000+ in weekly sales to place in the Top 3.</div>
+          <div class="toolbar">
+            <input id="salesMonth" type="month" />
+            <select id="salesWeekSelect"></select>
+            <button id="loadSalesBtn" class="primary">Load Leaderboard</button>
+          </div>
+          <div id="salesMsg"></div>
+        </div>
+
+        <div class="card" id="salesLeaderboardCard">
+          <div id="salesHeader"></div>
+          <div id="salesPodium" class="podium"></div>
+          <h3>Full Weekly Ranking</h3>
+          <div id="salesRankedList"></div>
+          <h3>Almost There <span class="small">(within $1,000 of $5,000)</span></h3>
+          <div id="salesAlmostThere"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -294,6 +365,8 @@ const DAILY_STATUSES = ['Working', 'Absent', 'On_Leave', 'On Leave'];
 const SALES_STATUSES = ['YES', 'NO', 'N/A'];
 const AGENT_CALL_TIME_GOAL_SECONDS = 90 * 60;
 const PROD_CALL_GOAL = 350;
+const SALES_QUALIFY_THRESHOLD = 5000;
+const SALES_ALMOST_GAP = 1000;
 
 let employees = [];
 let dailyResults = [];
@@ -306,6 +379,7 @@ const currentMonth = () => todayISO().slice(0,7);
 
 $('reportDate').value = todayISO();
 $('historyMonth').value = currentMonth();
+$('salesMonth').value = currentMonth();
 
 function safeId(text) { return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function normalizeExtension(v) { return String(v ?? '').trim().replace(/\.0$/, ''); }
@@ -364,6 +438,43 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 function pill(value, type) { return `<span class="pill ${type}">${value}</span>`; }
+function formatCurrency(n) {
+  return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function initials(name) {
+  return String(name || '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+}
+function avatarHTML(entity, size = 36) {
+  const cls = size >= 60 ? 'avatar-lg' : 'avatar';
+  const phCls = size >= 60 ? 'avatar-placeholder-lg' : 'avatar-placeholder';
+  if (entity && entity.photoBase64) {
+    return `<img class="${cls}" style="width:${size}px;height:${size}px" src="${entity.photoBase64}" alt="${entity.name || ''}" />`;
+  }
+  return `<div class="${phCls}" style="width:${size}px;height:${size}px">${initials(entity && entity.name)}</div>`;
+}
+function resizeImageFile(file, maxSize = 240) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that image file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not load that image file.'));
+      img.onload = () => {
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function selectHTML(options, selected, dataAttrs='') {
   return `<select ${dataAttrs}>${options.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
 }
@@ -375,6 +486,11 @@ function displayDailyStatus(status) {
 function salesSelectHTML(selected) {
   const cls = selected === 'YES' ? 'sales-yes' : selected === 'N/A' ? 'sales-na' : 'sales-no';
   return selectHTML(SALES_STATUSES, selected, `data-sales-status="1" class="${cls}"`);
+}
+function saleAmountInputHTML(item) {
+  const show = item.sales === 'YES';
+  const val = item.saleAmount ? item.saleAmount : '';
+  return `<input type="number" class="sale-amount-input" placeholder="Sale amount $" min="0" step="0.01" value="${val}" data-sale-amount="1" ${show ? '' : 'style="display:none"'} />`;
 }
 
 async function loadEmployees() {
@@ -409,6 +525,7 @@ async function seedDefaults() {
 function renderEmployees() {
   const rows = employees.map(emp => `
     <tr class="${emp.status === 'inactive' ? 'status-inactive' : ''}">
+      <td>${avatarHTML(emp, 36)}</td>
       <td>${emp.role}</td>
       <td><strong>${emp.name}</strong></td>
       <td>${(emp.extensions || []).join(', ')}</td>
@@ -421,13 +538,15 @@ function renderEmployees() {
       </td>
     </tr>`).join('');
   $('employeesTable').innerHTML = `
-    <thead><tr><th>Role</th><th>Name</th><th>Phone Extension</th><th>Start Date</th><th>Status</th><th>End Date</th><th>Action</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="7">No employees yet. Click Load Default Employees or add employees manually.</td></tr>`}</tbody>`;
+    <thead><tr><th>Photo</th><th>Role</th><th>Name</th><th>Phone Extension</th><th>Start Date</th><th>Status</th><th>End Date</th><th>Action</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="8">No employees yet. Click Load Default Employees or add employees manually.</td></tr>`}</tbody>`;
 }
 
 function resetEmployeeForm() {
   $('employeeForm').reset();
   $('empEditId').value = '';
+  $('empPhotoBase64').value = '';
+  $('empPhotoPreviewWrap').innerHTML = avatarHTML(null, 72);
   $('empSubmitBtn').textContent = 'Add Employee';
   $('empCancelEditBtn').style.display = 'none';
 }
@@ -440,11 +559,26 @@ function startEmployeeEdit(emp) {
   $('empStartDate').value = emp.startDate || '';
   $('empStatus').value = emp.status || 'active';
   $('empEndDate').value = emp.endDate || '';
+  $('empPhotoBase64').value = emp.photoBase64 || '';
+  $('empPhotoPreviewWrap').innerHTML = avatarHTML(emp, 72);
+  $('empPhotoFile').value = '';
   $('empSubmitBtn').textContent = 'Update Employee';
   $('empCancelEditBtn').style.display = '';
   showMsg('employeeMsg', `Editing ${emp.name}. Make your changes, then click Update Employee.`);
   $('empName').focus();
 }
+$('empPhotoPreviewWrap').innerHTML = avatarHTML(null, 72);
+$('empPhotoFile').addEventListener('change', async () => {
+  const file = $('empPhotoFile').files[0];
+  if (!file) return;
+  try {
+    const base64 = await resizeImageFile(file);
+    $('empPhotoBase64').value = base64;
+    $('empPhotoPreviewWrap').innerHTML = `<img class="avatar-lg" src="${base64}" alt="Preview" />`;
+  } catch (err) {
+    showMsg('employeeMsg', err.message || String(err), true);
+  }
+});
 
 $('employeeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -458,7 +592,8 @@ $('employeeForm').addEventListener('submit', async (e) => {
       extensions: $('empExtensions').value.split(',').map(normalizeExtension).filter(Boolean),
       startDate: $('empStartDate').value || '',
       status: $('empStatus').value,
-      endDate: $('empEndDate').value || ''
+      endDate: $('empEndDate').value || '',
+      photoBase64: $('empPhotoBase64').value || ''
     };
     if (!emp.name || !emp.extensions.length) return showMsg('employeeMsg', 'Name and at least one extension are required.', true);
     if (editId && existing && employeeDocId(emp) !== editId) {
@@ -521,7 +656,7 @@ function aggregateRows(rows) {
   if (missing.length) throw new Error(`Missing required column(s): ${missing.join(', ')}`);
 
   const active = activeEmployees();
-  const resultMap = new Map(active.map(emp => [emp.id, { ...emp, dailyStatus: 'Working', callTimeSeconds: 0, totalCalls: 0, sales: 'NO' }]));
+  const resultMap = new Map(active.map(emp => [emp.id, { ...emp, dailyStatus: 'Working', callTimeSeconds: 0, totalCalls: 0, sales: 'NO', saleAmount: 0 }]));
 
   for (const row of rows.slice(1)) {
     const ext = normalizeExtension(row[cols.fromExt]);
@@ -545,7 +680,9 @@ function calcDailyStatus(item) {
     if (item.role === 'Prod Team') kpiStatus = item.totalCalls >= PROD_CALL_GOAL ? 'Passed' : 'Failed';
     else kpiStatus = item.callTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'Passed' : 'Failed';
   }
-  return { ...item, kpiStatus, sales: nonWorking ? 'N/A' : (item.sales === 'YES' ? 'YES' : 'NO') };
+  const sales = nonWorking ? 'N/A' : (item.sales === 'YES' ? 'YES' : 'NO');
+  const saleAmount = sales === 'YES' ? Math.max(0, Number(item.saleAmount) || 0) : 0;
+  return { ...item, kpiStatus, sales, saleAmount };
 }
 function agentSummary(results) {
   const agents = results.filter(r => r.role === 'Agent' && r.dailyStatus === 'Working');
@@ -577,7 +714,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
       if (mode === 'eom') {
         if (isProd) {
           return `<tr>
-            <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+            <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
             <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
             <td>${Math.round(r.avgTotalCalls)}</td>
             <td>${r.workingDays || 0}</td>
@@ -587,11 +724,11 @@ function renderGroupedTables(containerId, data, mode='daily') {
           </tr>`;
         }
         return `<tr class="${eomRowClass}">
-          <td><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
           <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
           <td>${Math.round(r.avgTotalCalls)}</td>
-          <td>${pill(r.salesStatus, r.salesStatus === 'With Sale' ? 'yes' : r.salesStatus === 'N/A' ? 'na' : 'no')}</td>
+          <td>${pill(r.salesStatus, r.hasSale ? 'yes' : 'no')}</td>
           <td>${pill(r.spiffStatus, r.spiffStatus === 'Qualified' ? 'yes' : r.spiffStatus === 'N/A' ? 'na' : 'no')}</td>
           <td>${r.workingDays || 0}</td>
           <td>${exceptionCount(r.absentDays)}</td>
@@ -602,7 +739,7 @@ function renderGroupedTables(containerId, data, mode='daily') {
 
       if (isProd) {
         return `<tr class="${rowClass}" data-empid="${r.id}">
-          <td class="name-cell"><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td class="name-cell emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
           <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
           <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${r.totalCalls}</td>
@@ -610,12 +747,12 @@ function renderGroupedTables(containerId, data, mode='daily') {
       }
 
       return `<tr class="${rowClass}" data-empid="${r.id}">
-        <td class="name-cell"><strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+        <td class="name-cell emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
         <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
         <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
         <td>${secondsToHMS(r.callTimeSeconds)}</td>
         <td>${r.totalCalls}</td>
-        <td>${salesSelectHTML(r.sales)}</td>
+        <td><div class="sales-cell">${salesSelectHTML(r.sales)}${saleAmountInputHTML(r)}</div></td>
       </tr>`;
     }).join('');
 
@@ -638,6 +775,7 @@ function refreshDailyRender() {
   $('exportDailyBtn').disabled = !dailyResults.length;
 }
 $('dailyTables').addEventListener('change', (e) => {
+  if (e.target.dataset.saleAmount) return; // handled by the 'input' listener below, doesn't need a re-render
   const tr = e.target.closest('tr[data-empid]');
   if (!tr) return;
   const id = tr.dataset.empid;
@@ -648,6 +786,14 @@ $('dailyTables').addEventListener('change', (e) => {
   if (item.dailyStatus !== 'Working') item.sales = 'N/A';
   if (item.dailyStatus === 'Working' && item.sales === 'N/A') item.sales = 'NO';
   refreshDailyRender();
+});
+$('dailyTables').addEventListener('input', (e) => {
+  if (!e.target.dataset.saleAmount) return;
+  const tr = e.target.closest('tr[data-empid]');
+  if (!tr) return;
+  const item = dailyResults.find(r => r.id === tr.dataset.empid);
+  if (!item) return;
+  item.saleAmount = Math.max(0, Number(e.target.value) || 0);
 });
 
 $('processBtn').addEventListener('click', async () => {
@@ -671,6 +817,11 @@ $('processBtn').addEventListener('click', async () => {
 
 async function saveDailyReport() {
   if (!dailyResults.length) return;
+  const missingSaleAmount = dailyResults.some(r => r.role !== 'Prod Team' && r.dailyStatus === 'Working' && r.sales === 'YES' && !(r.saleAmount > 0));
+  if (missingSaleAmount) {
+    showMsg('uploadMsg', 'Enter a sale amount greater than $0 for every employee marked "YES" under Sales before saving.', true);
+    return;
+  }
   const date = $('reportDate').value || todayISO();
   const ref = doc(db, 'dailyReports', date);
   const existing = await getDoc(ref);
@@ -710,9 +861,10 @@ function computeEOM(reports) {
     let avgCallTimeStatus = 'N/A';
     if (workingDays) avgCallTimeStatus = emp.role === 'Prod Team' ? (avgTotalCalls >= PROD_CALL_GOAL ? 'Passed' : 'Failed') : (avgCallTimeSeconds >= AGENT_CALL_TIME_GOAL_SECONDS ? 'Passed' : 'Failed');
     const hasSale = rows.some(r => r.sales === 'YES');
-    const salesStatus = emp.role === 'Prod Team' ? 'N/A' : (hasSale ? 'With Sale' : 'No Sale');
+    const totalSaleAmount = rows.reduce((s, r) => s + (r.sales === 'YES' ? (Number(r.saleAmount) || 0) : 0), 0);
+    const salesStatus = emp.role === 'Prod Team' ? 'N/A' : (hasSale ? formatCurrency(totalSaleAmount) : 'No Sale');
     const spiffStatus = emp.role === 'Prod Team' ? 'N/A' : (avgCallTimeStatus === 'Passed' && hasSale ? 'Qualified' : 'Not Qualified');
-    return { ...emp, workingDays, absentDays, paidLeaveDays, unpaidLeaveDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, spiffStatus };
+    return { ...emp, workingDays, absentDays, paidLeaveDays, unpaidLeaveDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, hasSale, totalSaleAmount, spiffStatus };
   });
 }
 
@@ -787,12 +939,13 @@ function historyEmployeeRow(r) {
     : nonWorkingClass;
 
   const statusText = displayDailyStatus(r.dailyStatus);
+  const salesText = isWorking ? (r.sales === 'YES' ? formatCurrency(r.saleAmount) : 'No Sale') : statusText;
 
   return `<tr>
-    <td><strong>${r.name}</strong></td>
+    <td class="emp-name-cell">${avatarHTML(r, 24)} <strong>${r.name}</strong></td>
     <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : statusText}</td>
     <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
-    <td class="${salesClass}">${isWorking ? r.sales : statusText}</td>
+    <td class="${salesClass}">${salesText}</td>
   </tr>`;
 }
 function historyProdRow(r) {
@@ -802,7 +955,7 @@ function historyProdRow(r) {
   const nonWorkingClass = historyStatusClass(r.dailyStatus);
 
   return `<tr>
-    <td><strong>${r.name}</strong></td>
+    <td class="emp-name-cell">${avatarHTML(r, 24)} <strong>${r.name}</strong></td>
     <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
     <td class="${isWorking ? (passed ? 'cell-pass' : 'cell-fail') : nonWorkingClass}">
       ${isWorking ? (passed ? 'Pass' : 'Fail') : statusText}
@@ -814,6 +967,19 @@ function dailyHistoryCard(date, report) {
     return `<div class="daily-card">
       <div class="daily-card-header"><strong>${formatLongDate(date)}</strong></div>
       <div class="daily-card-body"><div class="empty-day">No saved data</div></div>
+      <div class="daily-card-footer">
+        <button class="secondary" data-mark-noworkday="${date}">Mark as No Work Day</button>
+      </div>
+    </div>`;
+  }
+
+  if (report.noWorkDay) {
+    return `<div class="daily-card no-work-day-card">
+      <div class="daily-card-header"><strong>${formatLongDate(date)}</strong></div>
+      <div class="daily-card-body"><div class="no-work-day-body">🏖 No Work Day</div></div>
+      <div class="daily-card-footer">
+        <button class="danger" data-delete-report="${date}">Delete Data</button>
+      </div>
     </div>`;
   }
 
@@ -832,13 +998,82 @@ function dailyHistoryCard(date, report) {
   return `<div class="daily-card">
     <div class="daily-card-header">
       <strong>${formatLongDate(date)}</strong>
-      <button class="danger" data-delete-report="${date}">Delete Data</button>
     </div>
     <div class="daily-card-body">
       ${table('Agents', ['Name','Total Call Time','Total Calls','Sales'], agents.map(historyEmployeeRow).join(''), 4)}
       ${table('Supervisors', ['Name','Total Call Time','Total Calls','Sales'], supervisors.map(historyEmployeeRow).join(''), 4)}
       ${table('Prod Team', ['Name','Total Calls','Status'], prod.map(historyProdRow).join(''), 3)}
     </div>
+    <div class="daily-card-footer">
+      <button class="secondary" data-mark-noworkday="${date}">Mark as No Work Day</button>
+      <button class="danger" data-delete-report="${date}">Delete Data</button>
+    </div>
+  </div>`;
+}
+
+function buildSparklineSVG(values, goalSeconds) {
+  const w = 120, h = 34, pad = 4;
+  if (!values.length) return `<span class="small">N/A</span>`;
+  const max = Math.max(goalSeconds, ...values) * 1.05;
+  const stepX = values.length > 1 ? (w - pad * 2) / (values.length - 1) : 0;
+  const scaleY = (v) => h - pad - (v / max) * (h - pad * 2);
+  const points = values.map((v, i) => `${pad + i * stepX},${scaleY(v)}`).join(' ');
+  const goalY = scaleY(goalSeconds);
+  const lastColor = values[values.length - 1] >= goalSeconds ? '#16833a' : '#bc2f2f';
+  const circles = values.map((v, i) => `<circle cx="${pad + i * stepX}" cy="${scaleY(v)}" r="2.5" fill="${v >= goalSeconds ? '#16833a' : '#bc2f2f'}" />`).join('');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <line x1="${pad}" y1="${goalY}" x2="${w - pad}" y2="${goalY}" stroke="#d9e1ec" stroke-width="1" stroke-dasharray="3,3" />
+    <polyline points="${points}" fill="none" stroke="${lastColor}" stroke-width="2" />
+    ${circles}
+  </svg>`;
+}
+function renderEOWCard(weekDates, weekIndex) {
+  const weekReports = historyCache.filter(r => weekDates.includes(r.date) && !r.noWorkDay);
+  if (!weekReports.length) {
+    return `<div class="card eow-card"><h3>Week ${weekIndex + 1} — End-of-Week Report</h3><div class="notice">No saved data for this week yet.</div></div>`;
+  }
+  const results = computeEOM(weekReports);
+  const groups = ['Agent', 'Supervisor', 'Prod Team'];
+
+  const body = groups.map(role => {
+    const rows = results.filter(r => r.role === role);
+    if (!rows.length) return '';
+    const isProd = role === 'Prod Team';
+
+    const trs = rows.map(r => {
+      const dailyValues = weekReports
+        .map(rep => (rep.employees || []).find(e => e.id === r.id))
+        .filter(e => e && e.dailyStatus === 'Working')
+        .map(e => e.callTimeSeconds || 0);
+
+      if (isProd) {
+        return `<tr>
+          <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong></td>
+          <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+          <td>${Math.round(r.avgTotalCalls)}</td>
+          <td>${r.workingDays || 0}</td>
+        </tr>`;
+      }
+      return `<tr>
+        <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong></td>
+        <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+        <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
+        <td>${pill(r.salesStatus, r.hasSale ? 'yes' : 'no')}</td>
+        <td>${r.workingDays || 0}</td>
+        <td><div class="sparkline-wrap">${buildSparklineSVG(dailyValues, AGENT_CALL_TIME_GOAL_SECONDS)}</div></td>
+      </tr>`;
+    }).join('');
+
+    const headers = isProd
+      ? '<tr><th>Name</th><th>Avg Calls KPI</th><th>Daily Avg Calls</th><th>Working Days</th></tr>'
+      : '<tr><th>Name</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Weekly Sales</th><th>Working Days</th><th>Weekly Trend</th></tr>';
+
+    return `<h4>${role}s</h4><div style="overflow:auto"><table class="eom-table"><thead>${headers}</thead><tbody>${trs}</tbody></table></div>`;
+  }).join('');
+
+  return `<div class="card eow-card">
+    <h3>Week ${weekIndex + 1} — End-of-Week Report</h3>
+    ${body}
   </div>`;
 }
 
@@ -853,11 +1088,156 @@ function renderHistory(reports) {
       <div class="daily-card-grid">
         ${weekDates.map(date => dailyHistoryCard(date, reportMap.get(date))).join('')}
       </div>
+      ${renderEOWCard(weekDates, i)}
     </section>
   `).join('') || '<div class="notice">No weekdays found for this month.</div>';
 }
+function weekOptionLabel(weekDates, idx) {
+  const start = new Date(`${weekDates[0]}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const end = new Date(`${weekDates[weekDates.length - 1]}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `Week ${idx + 1} (${start} – ${end})`;
+}
+function populateSalesWeekSelect() {
+  const month = $('salesMonth').value || currentMonth();
+  const weeks = monthWorkingWeeks(month);
+  const today = todayISO();
+  let defaultIdx = weeks.findIndex(w => w.includes(today));
+  if (defaultIdx < 0) defaultIdx = weeks.length ? weeks.length - 1 : 0;
+  $('salesWeekSelect').innerHTML = weeks.map((w, i) => `<option value="${i}" ${i === defaultIdx ? 'selected' : ''}>${weekOptionLabel(w, i)}</option>`).join('') || '<option value="">No weeks found</option>';
+  $('salesWeekSelect').dataset.weeksJson = JSON.stringify(weeks);
+}
+function computeSalesTotals(reports) {
+  const totals = new Map();
+  for (const rep of reports) {
+    if (rep.noWorkDay) continue;
+    for (const r of (rep.employees || [])) {
+      if (r.role === 'Prod Team') continue;
+      if (r.dailyStatus !== 'Working' || r.sales !== 'YES') continue;
+      totals.set(r.id, (totals.get(r.id) || 0) + (Number(r.saleAmount) || 0));
+    }
+  }
+  return totals;
+}
+function rankList(totals) {
+  return activeEmployees()
+    .filter(e => e.role !== 'Prod Team')
+    .map(e => ({ ...e, total: totals.get(e.id) || 0 }))
+    .sort((a, b) => b.total - a.total);
+}
+function renderSalesLeaderboard(weekDates, currentTotals, priorTotals) {
+  const current = rankList(currentTotals);
+  const prior = rankList(priorTotals);
+  const priorTop3Ids = prior.filter(e => e.total >= SALES_QUALIFY_THRESHOLD).slice(0, 3).map(e => e.id);
+  const priorQualifiedIds = new Set(prior.filter(e => e.total >= SALES_QUALIFY_THRESHOLD).map(e => e.id));
+
+  const qualifiers = current.filter(e => e.total >= SALES_QUALIFY_THRESHOLD);
+  const top3 = qualifiers.slice(0, 3);
+
+  const start = formatLongDate(weekDates[0]);
+  const end = formatLongDate(weekDates[weekDates.length - 1]);
+  $('salesHeader').innerHTML = `<h3 style="margin-bottom:4px">🏆 Top Agents — Weekly Sales</h3><div class="small" style="margin-bottom:14px">${start} – ${end} &middot; $${SALES_QUALIFY_THRESHOLD.toLocaleString()}+ to qualify for Top 3</div>`;
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const slots = [0, 1, 2].map(i => {
+    const entry = top3[i];
+    if (!entry) {
+      return `<div class="podium-slot rank-${i + 1}"><div class="podium-medal">${medals[i]}</div><div class="podium-empty">No qualifier yet</div></div>`;
+    }
+    const isNew = !priorQualifiedIds.has(entry.id);
+    return `<div class="podium-slot rank-${i + 1}">
+      <div class="podium-medal">${medals[i]}</div>
+      ${avatarHTML(entry, 72)}
+      <div class="podium-name">${entry.name}</div>
+      <div class="podium-amount">${formatCurrency(entry.total)}</div>
+      ${isNew ? '<div class="new-qualifier-badge">🎉 New Qualifier</div>' : ''}
+    </div>`;
+  });
+  $('salesPodium').innerHTML = slots.join('');
+
+  const rows = current.map((e, i) => {
+    const rank = i + 1;
+    const priorRank = priorTop3Ids.includes(e.id) ? priorTop3Ids.indexOf(e.id) + 1 : null;
+    let moveTag = '';
+    if (rank <= 3) {
+      if (!priorTop3Ids.includes(e.id) && e.total >= SALES_QUALIFY_THRESHOLD) {
+        moveTag = '<span class="rank-move-new">NEW to Top 3</span>';
+      } else if (priorRank && priorRank !== rank) {
+        moveTag = priorRank > rank ? `<span class="rank-move-up">▲ moved up</span>` : `<span class="rank-move-down">▼ moved down</span>`;
+      }
+    }
+    return `<tr>
+      <td>#${rank}</td>
+      <td class="emp-name-cell">${avatarHTML(e, 36)} <strong>${e.name}</strong></td>
+      <td>${formatCurrency(e.total)}</td>
+      <td>${e.total >= SALES_QUALIFY_THRESHOLD ? pill('Qualified', 'yes') : ''}</td>
+      <td>${moveTag}</td>
+    </tr>`;
+  }).join('');
+  $('salesRankedList').innerHTML = `<div style="overflow:auto"><table><thead><tr><th>Rank</th><th>Agent</th><th>Weekly Sales</th><th>Status</th><th>Change</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No agents found.</td></tr>'}</tbody></table></div>`;
+
+  const almost = current.filter(e => e.total >= SALES_QUALIFY_THRESHOLD - SALES_ALMOST_GAP && e.total < SALES_QUALIFY_THRESHOLD);
+  $('salesAlmostThere').innerHTML = almost.length ? almost.map(e => {
+    const pct = Math.min(100, Math.round((e.total / SALES_QUALIFY_THRESHOLD) * 100));
+    const remaining = SALES_QUALIFY_THRESHOLD - e.total;
+    return `<div class="almost-there-row">
+      ${avatarHTML(e, 36)}
+      <div class="almost-there-info">
+        <strong>${e.name}</strong> &middot; ${formatCurrency(e.total)}
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="small">${formatCurrency(remaining)} to go!</div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="notice">No agents currently in this range.</div>';
+}
+async function loadSalesLeaderboard() {
+  try {
+    showMsg('salesMsg', 'Loading...');
+    const month = $('salesMonth').value || currentMonth();
+    if (!$('salesWeekSelect').dataset.weeksJson) populateSalesWeekSelect();
+    const weeks = JSON.parse($('salesWeekSelect').dataset.weeksJson || '[]');
+    const weekIdx = Number($('salesWeekSelect').value || 0);
+    const weekDates = weeks[weekIdx] || [];
+    if (!weekDates.length) {
+      showMsg('salesMsg', 'No working days found for this week.', true);
+      return;
+    }
+    const monthReports = await loadReportsForMonth(month);
+    const weekReports = monthReports.filter(r => weekDates.includes(r.date));
+    const today = todayISO();
+    const priorReports = weekReports.filter(r => r.date < today);
+
+    const currentTotals = computeSalesTotals(weekReports);
+    const priorTotals = computeSalesTotals(priorReports);
+
+    renderSalesLeaderboard(weekDates, currentTotals, priorTotals);
+    showMsg('salesMsg', '');
+  } catch (err) {
+    showMsg('salesMsg', firebaseErrorMessage(err), true);
+  }
+}
+$('salesMonth').addEventListener('change', () => { populateSalesWeekSelect(); loadSalesLeaderboard(); });
+$('salesWeekSelect').addEventListener('change', loadSalesLeaderboard);
+$('loadSalesBtn').addEventListener('click', loadSalesLeaderboard);
+
 $('loadHistoryBtn').addEventListener('click', loadHistory);
 $('historyTables').addEventListener('click', async (e) => {
+  const markDate = e.target.dataset.markNoworkday;
+  if (markDate) {
+    const existing = historyCache.find(r => r.date === markDate);
+    const msg = existing
+      ? `This date already has a saved report with employee data. Replace it with a No Work Day entry? This cannot be undone except by deleting it.`
+      : `Mark ${markDate} as a No Work Day? This day will be fully excluded from EOM/EOW averages for everyone.`;
+    if (!confirm(msg)) return;
+    try {
+      await setDoc(doc(db, 'dailyReports', markDate), { date: markDate, noWorkDay: true, savedAt: new Date().toISOString() });
+      showMsg('historyMsg', `Marked ${markDate} as a No Work Day.`);
+      await loadHistory();
+    } catch (err) {
+      showMsg('historyMsg', firebaseErrorMessage(err), true);
+    }
+    return;
+  }
+
   const date = e.target.dataset.deleteReport;
   if (!date) return;
   if (!confirm(`Delete saved data for ${date}? You can reupload and save corrected data after deleting.`)) return;
@@ -871,13 +1251,14 @@ $('historyTables').addEventListener('click', async (e) => {
 });
 
 $('exportDailyBtn').addEventListener('click', () => {
-  const rows = [['Name','Status','KPI Status','Call Time','Total Calls','With Sales']].concat(dailyResults.map(r => [
+  const rows = [['Name','Status','KPI Status','Call Time','Total Calls','With Sales','Sale Amount']].concat(dailyResults.map(r => [
     `${r.name} (${r.extensions.join('/')})`,
     r.dailyStatus,
     r.kpiStatus,
     r.role === 'Prod Team' ? '' : secondsToHMS(r.callTimeSeconds),
     r.totalCalls,
-    r.role === 'Prod Team' ? '' : r.sales
+    r.role === 'Prod Team' ? '' : r.sales,
+    r.role === 'Prod Team' ? '' : (r.sales === 'YES' ? (Number(r.saleAmount) || 0).toFixed(2) : '')
   ]));
   downloadCSV(`daily-kpi-${$('reportDate').value || todayISO()}.csv`, rows);
 });
@@ -885,12 +1266,13 @@ $('exportEomBtn').addEventListener('click', async () => {
   const month = $('historyMonth').value || currentMonth();
   const reports = await loadReportsForMonth(month);
   const results = computeEOM(reports);
-  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Spiff','Working Days','Absent Days','Paid Leave Days','Unpaid Leave Days']].concat(results.map(r => [
+  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Total Sale Amount','Spiff','Working Days','Absent Days','Paid Leave Days','Unpaid Leave Days']].concat(results.map(r => [
     `${r.name} (${r.extensions.join('/')})`,
     r.avgCallTimeStatus,
     r.role === 'Prod Team' ? '' : secondsToHMS(r.avgCallTimeSeconds),
     Math.round(r.avgTotalCalls),
     r.role === 'Prod Team' ? '' : r.salesStatus,
+    r.role === 'Prod Team' ? '' : (r.totalSaleAmount || 0).toFixed(2),
     r.role === 'Prod Team' ? '' : r.spiffStatus,
     r.workingDays || 0,
     r.absentDays || 0,
@@ -901,8 +1283,11 @@ $('exportEomBtn').addEventListener('click', async () => {
 });
 $('exportHistoryBtn').addEventListener('click', async () => {
   if (!historyCache.length) await loadHistory();
-  const rows = [['Date','Role','Name','Status','KPI Status','Call Time','Total Calls','With Sales']];
-  historyCache.forEach(rep => (rep.employees || []).forEach(r => rows.push([rep.date, r.role, r.name, r.dailyStatus, r.kpiStatus, secondsToHMS(r.callTimeSeconds), r.totalCalls, r.sales])));
+  const rows = [['Date','Role','Name','Status','KPI Status','Call Time','Total Calls','With Sales','Sale Amount']];
+  historyCache.forEach(rep => {
+    if (rep.noWorkDay) { rows.push([rep.date, '', '', 'No Work Day', '', '', '', '', '']); return; }
+    (rep.employees || []).forEach(r => rows.push([rep.date, r.role, r.name, r.dailyStatus, r.kpiStatus, secondsToHMS(r.callTimeSeconds), r.totalCalls, r.sales, r.sales === 'YES' ? (Number(r.saleAmount) || 0).toFixed(2) : '']));
+  });
   downloadCSV(`monthly-history-${$('historyMonth').value || currentMonth()}.csv`, rows);
 });
 
@@ -913,6 +1298,10 @@ for (const btn of document.querySelectorAll('.nav-button')) {
     btn.classList.add('active');
     $(btn.dataset.page).classList.add('active');
     if (btn.dataset.page === 'historyPage') await loadHistory();
+    if (btn.dataset.page === 'salesPage') {
+      if (!$('salesWeekSelect').dataset.weeksJson) populateSalesWeekSelect();
+      await loadSalesLeaderboard();
+    }
   });
 }
 
