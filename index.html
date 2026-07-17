@@ -46,6 +46,12 @@
       padding: 22px;
       border-right: 1px solid var(--line);
       background: #eef3fa;
+      position: sticky;
+      top: 0;
+      height: fit-content;
+      max-height: calc(100vh - 108px);
+      overflow-y: auto;
+      z-index: 10;
     }
     .nav-button {
       width: 100%;
@@ -95,15 +101,34 @@
     button.danger { background: var(--red); color: var(--red-deep); font-weight: 800; cursor: pointer; }
     button:disabled { opacity: .48; cursor: not-allowed; }
 
-    table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
     th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; font-size: 14px; }
     th { background: var(--navy); color: white; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; }
     tr:last-child td { border-bottom: none; }
+    .eow-table { border-collapse: collapse; }
+    .eow-table th, .eow-table td { border-bottom: 1px solid var(--line); }
+    .eow-table th:not(:first-child), .eow-table td:not(:first-child) { text-align: center; }
+    .eow-table td:not(:first-child) .pill { margin: 0 auto; }
+    .eow-table td:not(:first-child) .sparkline-wrap { display: flex; justify-content: center; }
     tbody tr:hover td { background: #f8fbff; }
     td select { width: 100%; min-width: 110px; padding: 8px 9px; }
     select.sales-yes { background: var(--green); color: var(--green-deep); border-color: #86efac; font-weight: 700; }
     select.sales-no { background: var(--red); color: var(--red-deep); border-color: #fca5a5; font-weight: 700; }
     select.sales-na { background: var(--blue); color: #1b5a9f; border-color: #93c5fd; font-weight: 700; }
+
+    .sales-pill { display: flex; align-items: center; gap: 10px; border-radius: 999px; border: 1px solid transparent; padding: 6px 16px; width: fit-content; min-width: 150px; }
+    .sales-pill.sales-yes { background: var(--green); border-color: #86efac; }
+    .sales-pill.sales-no { background: var(--red); border-color: #fca5a5; }
+    .sales-pill.sales-na { background: var(--blue); border-color: #93c5fd; }
+    .sales-pill select.sales-pill-select { width: auto; min-width: 0; border: none; background: transparent; padding: 0; margin: 0; font-weight: 800; font-size: 13px; cursor: pointer; }
+    .sales-pill.sales-yes select.sales-pill-select { color: var(--green-deep); }
+    .sales-pill.sales-no select.sales-pill-select { color: var(--red-deep); }
+    .sales-pill.sales-na select.sales-pill-select { color: #1b5a9f; }
+    .sales-pill .inline-amount-wrap { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+    .sales-pill .inline-amount-wrap span { color: var(--green-deep); font-weight: 800; font-size: 14px; }
+    .sales-pill .inline-amount-wrap input { border: none; border-bottom: 2px solid var(--green-deep); background: transparent; width: 6.5ch; padding: 2px 0 1px; font-weight: 700; font-size: 14px; color: var(--ink); text-align: center; }
+    .sales-pill .inline-amount-wrap input:focus { outline: none; border-bottom-color: var(--green-deep); }
+    .sales-pill .inline-amount-wrap input::-webkit-outer-spin-button, .sales-pill .inline-amount-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
     .pill { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; padding: 6px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; }
     .pass, .yes { background: var(--green); color: var(--green-deep); }
@@ -156,7 +181,8 @@
     .avatar-lg { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid white; box-shadow: var(--shadow); }
     .avatar-placeholder-lg { width: 72px; height: 72px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; border: 3px solid white; box-shadow: var(--shadow); }
     .photo-preview-wrap { display: flex; align-items: center; gap: 10px; }
-    .emp-name-cell { display: flex; align-items: center; gap: 8px; }
+    .emp-name-cell { }
+    .name-inner { display: flex; align-items: center; gap: 8px; height: 100%; }
 
     /* Sales amount entry */
     .sales-cell { display: flex; flex-direction: column; gap: 6px; align-items: center; }
@@ -169,7 +195,7 @@
     .daily-card-footer button { width: 100%; }
 
     /* End of Week */
-    .eow-card .emp-name-cell { justify-content: flex-start; }
+    .eow-card .name-inner { justify-content: flex-start; }
 
     /* Sales Leaderboard */
     .podium { display: flex; align-items: flex-end; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 6px 0 26px; }
@@ -190,6 +216,21 @@
     .progress-fill { background: linear-gradient(90deg, var(--blue-deep), var(--green-deep)); height: 100%; }
     .almost-there-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white; margin-bottom: 10px; }
     .almost-there-info { flex: 1; }
+    
+    /* Sales leaderboard tabs */
+    .sales-tab-buttons, .history-tab-buttons { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--line); }
+    .sales-tab-btn, .history-tab-btn { padding: 12px 18px; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: 700; color: var(--muted); transition: .2s; }
+    .sales-tab-btn.active, .history-tab-btn.active { color: var(--navy); border-bottom-color: var(--blue-deep); }
+    .sales-tab-btn:hover:not(.active), .history-tab-btn:hover:not(.active) { color: var(--navy); }
+    .sales-tab-content, .history-tab-content { display: none; }
+    .sales-tab-content.active, .history-tab-content.active { display: block; }
+    .incentive-info { background: #f0f8ff; border: 1px solid #c9dcfa; border-radius: 12px; padding: 14px; margin: 0 auto 16px; font-size: 13px; color: #1f3a5f; max-width: 576px; text-align: center; }
+    .call-trend-table { width: 100%; border-collapse: collapse; }
+    .call-trend-table th, .call-trend-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: left; }
+    .call-trend-table th:first-child, .call-trend-table td:first-child { white-space: nowrap; width: 1%; }
+    .call-trend-chart-cell svg { display: block; }
+    .prize-row { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 6px 0; }
+    .prize-badge { background: white; padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; }
 
     @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
     @media (max-width: 980px) {
@@ -211,7 +252,7 @@
     <nav>
       <button class="nav-button active" data-page="employeesPage">Employee List</button>
       <button class="nav-button" data-page="kpiPage">Daily KPI Processor</button>
-      <button class="nav-button" data-page="historyPage">EOM & Daily Stats History</button>
+      <button class="nav-button" data-page="historyPage">EOM, EOW & Daily Stats</button>
       <button class="nav-button" data-page="salesPage">Sales Leaderboard</button>
     </nav>
 
@@ -253,7 +294,7 @@
 
       <section id="kpiPage" class="page">
         <div class="card">
-          <h2>Daily KPI & EOM</h2>
+          <h2>Daily KPI</h2>
           <div class="toolbar">
             <input id="reportDate" type="date" />
             <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
@@ -272,15 +313,20 @@
         </div>
 
         <div class="card">
-          <h3>Today's KPI Results</h3>
+          <h3>KPI Results</h3>
           <div id="dailyTables"></div>
+        </div>
+
+        <div class="card">
+          <h3>📊 Call Trend <span class="small">(calls per 20 mins, counts both inbound & outbound)</span></h3>
+          <div id="callTrendSection"></div>
         </div>
 
       </section>
 
       <section id="historyPage" class="page">
         <div class="card">
-          <h2>EOM & Daily Stats History</h2>
+          <h2>EOM, EOW & Daily Stats</h2>
           <div class="toolbar">
             <input id="historyMonth" type="month" />
             <button id="loadHistoryBtn" class="primary">Load Month</button>
@@ -290,18 +336,28 @@
 
         <div class="card">
           <div class="section-title">
-            <h3>EOM Running Stats</h3>
-            <button id="exportEomBtn" class="secondary">Export EOM CSV</button>
+            <h3>Statistics Records</h3>
           </div>
-          <div id="eomTablesHistory"></div>
-        </div>
-
-        <div class="card">
-          <div class="section-title">
-            <h3>Daily Stats History</h3>
-            <button id="exportHistoryBtn" class="secondary">Export Monthly History CSV</button>
+          <div class="history-tab-buttons">
+            <button class="history-tab-btn active" data-htab="daily">🗓️ Daily Reports</button>
+            <button class="history-tab-btn" data-htab="eow">📋 EOW Reports</button>
+            <button class="history-tab-btn" data-htab="eom">📊 EOM Report</button>
           </div>
-          <div id="historyTables"></div>
+          <div id="historyTabDaily" class="history-tab-content active">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+              <button id="exportHistoryBtn" class="secondary">Export Monthly History CSV</button>
+            </div>
+            <div id="historyTables"></div>
+          </div>
+          <div id="historyTabEow" class="history-tab-content">
+            <div id="historyTablesEow"></div>
+          </div>
+          <div id="historyTabEom" class="history-tab-content">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+              <button id="exportEomBtn" class="secondary">Export EOM CSV</button>
+            </div>
+            <div id="eomTablesHistory"></div>
+          </div>
         </div>
       </section>
 
@@ -310,9 +366,10 @@
           <div class="section-title">
             <h2>Sales Leaderboard</h2>
           </div>
-          <div class="notice">Screenshot-ready weekly sales rankings for the group chat announcement. Agents need $5,000+ in weekly sales to place in the Top 3.</div>
           <div class="toolbar">
+            <label class="small" for="salesMonth" style="font-weight:700;">Month</label>
             <input id="salesMonth" type="month" />
+            <label id="salesWeekLabel" class="small" for="salesWeekSelect" style="font-weight:700; margin-left:8px;">Week</label>
             <select id="salesWeekSelect"></select>
             <button id="loadSalesBtn" class="primary">Load Leaderboard</button>
           </div>
@@ -320,12 +377,31 @@
         </div>
 
         <div class="card" id="salesLeaderboardCard">
-          <div id="salesHeader"></div>
-          <div id="salesPodium" class="podium"></div>
-          <h3>Full Weekly Ranking</h3>
-          <div id="salesRankedList"></div>
-          <h3>Almost There <span class="small">(within $1,000 of $5,000)</span></h3>
-          <div id="salesAlmostThere"></div>
+          <div class="sales-tab-buttons">
+            <button class="sales-tab-btn active" data-tab="weekly">📊 Weekly Sales</button>
+            <button class="sales-tab-btn" data-tab="monthly">📈 Monthly Sales</button>
+          </div>
+
+          <!-- Weekly Tab -->
+          <div id="salesTabWeekly" class="sales-tab-content active">
+            <div id="weeklyHeader"></div>
+            <div id="weeklyPodium" class="podium"></div>
+            <div class="incentive-info" id="weeklyIncentive"></div>
+            <h3 style="text-align:center;">Full Weekly Ranking <span class="small">(agents with sales)</span></h3>
+            <div id="weeklyRankedList"></div>
+            <h3>Almost There <span class="small">(within $1,000 of $5,000)</span></h3>
+            <div id="weeklyAlmostThere"></div>
+          </div>
+
+          <!-- Monthly Tab -->
+          <div id="salesTabMonthly" class="sales-tab-content">
+            <div class="notice">Monthly sales ranking includes all agents. No incentives for monthly ranking.</div>
+            <div class="incentive-info" id="monthlySalesGoal" style="text-align:left;"></div>
+            <h3 style="text-align:center;">🏆 Top 3 Agents — Monthly Sales</h3>
+            <div id="monthlyTop3"></div>
+            <h3 style="text-align:center;">Full Monthly Ranking <span class="small">(all agents)</span></h3>
+            <div id="monthlyRankedList"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -412,6 +488,92 @@ function directionIsInboundOrOutbound(direction) {
   const d = String(direction || '').toLowerCase();
   return d.includes('outbound') || d.includes('inbound');
 }
+function directionIsInternal(direction) { return String(direction || '').toLowerCase().includes('internal'); }
+
+const CALL_TREND_START_MIN = 11 * 60; // 11:00 AM
+const CALL_TREND_END_MIN = 20 * 60;   // 8:00 PM
+const CALL_TREND_BUCKET_MIN = 20;
+const CALL_TREND_BUCKET_COUNT = (CALL_TREND_END_MIN - CALL_TREND_START_MIN) / CALL_TREND_BUCKET_MIN; // 27
+
+function callTrendBucketIndex(startTimeValue) {
+  let minutesOfDay;
+  if (typeof startTimeValue === 'number' && isFinite(startTimeValue)) {
+    // SheetJS parses CSV date-times into Excel serial numbers; the fractional part is the time of day
+    const fraction = startTimeValue - Math.floor(startTimeValue);
+    minutesOfDay = Math.floor(fraction * 1440 + 1e-6);
+  } else {
+    const text = String(startTimeValue ?? '').trim();
+    if (!text) return -1;
+    const isoish = text.includes('T') ? text : text.replace(' ', 'T');
+    const d = new Date(isoish);
+    if (isNaN(d.getTime())) return -1;
+    minutesOfDay = d.getHours() * 60 + d.getMinutes();
+  }
+  if (minutesOfDay < CALL_TREND_START_MIN || minutesOfDay >= CALL_TREND_END_MIN) return -1;
+  return Math.floor((minutesOfDay - CALL_TREND_START_MIN) / CALL_TREND_BUCKET_MIN);
+}
+function callTrendBucketLabel(i) {
+  const fmt = (mins) => {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const period = h < 12 ? 'AM' : 'PM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+  const start = CALL_TREND_START_MIN + i * CALL_TREND_BUCKET_MIN;
+  // Display in PH time (shift by 12 hours for UI only)
+  const displayStart = (start + 12 * 60) % (24 * 60);
+  const displayEnd = (displayStart + CALL_TREND_BUCKET_MIN) % (24 * 60);
+  return `${fmt(displayStart)} – ${fmt(displayEnd)}`;
+}
+function callTrendHourTick(i) {
+  const start = CALL_TREND_START_MIN + i * CALL_TREND_BUCKET_MIN;
+  // Display in PH time (shift by 12 hours for UI only)
+  const displayStart = (start + 12 * 60) % (24 * 60);
+  const h = Math.floor(displayStart / 60);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${h < 12 ? 'A' : 'P'}`;
+}
+function buildCallTrendSVG(counts) {
+  const barW = 22, gap = 5, chartH = 90, padTop = 16, padBottom = 18, padLeft = 3, padRight = 3;
+  const maxVal = Math.max(1, ...counts);
+  const width = padLeft + padRight + counts.length * (barW + gap) - gap;
+  const height = padTop + chartH + padBottom;
+  const bars = counts.map((c, i) => {
+    const x = padLeft + i * (barW + gap);
+    const showTick = i % 3 === 0;
+    const tickLabel = showTick ? `<text x="${x + barW / 2}" y="${padTop + chartH + 14}" font-size="10" text-anchor="middle" fill="var(--muted)">${callTrendHourTick(i)}</text>` : '';
+    if (!c) {
+      // Zero-count bucket: show a thin baseline mark instead of nothing, so it reads as "zero" not "missing"
+      const y = padTop + chartH - 2;
+      return `<rect x="${x}" y="${y}" width="${barW}" height="2" rx="1" fill="var(--line)"><title>${callTrendBucketLabel(i)}: 0 calls</title></rect>
+        <text x="${x + barW / 2}" y="${padTop + chartH - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">0</text>${tickLabel}`;
+    }
+    const barH = Math.max((c / maxVal) * chartH, 6);
+    const y = padTop + (chartH - barH);
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3" fill="var(--blue-deep)"><title>${callTrendBucketLabel(i)}: ${c} call${c === 1 ? '' : 's'}</title></rect>
+      <text x="${x + barW / 2}" y="${y - 4}" font-size="10" font-weight="700" text-anchor="middle" fill="var(--navy)">${c}</text>${tickLabel}`;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+}
+const CALL_TREND_ROLE_ORDER = ['Agent', 'Supervisor', 'Prod Team'];
+function renderCallTrend(results) {
+  const container = $('callTrendSection');
+  if (!container) return;
+  if (!results.length) { container.innerHTML = '<div class="notice">No data to show yet.</div>'; return; }
+  container.innerHTML = CALL_TREND_ROLE_ORDER.map(role => {
+    const roleResults = results.filter(r => r.role === role);
+    if (!roleResults.length) return '';
+    const rows = roleResults.map(r => `
+      <tr>
+        <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong></div></td>
+        <td class="call-trend-chart-cell">${buildCallTrendSVG(r.callTrend || new Array(CALL_TREND_BUCKET_COUNT).fill(0))}</td>
+      </tr>`).join('');
+    return `<h3>${role}s</h3><div style="overflow:auto"><table class="call-trend-table">
+      <thead><tr><th>Name</th><th>Calls per 20 Minutes (11:00 PM – 8:00 AM)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div><br>`;
+  }).join('') || '<div class="notice">No data to show yet.</div>';
+}
 function showMsg(containerId, message, isError=false) {
   $(containerId).innerHTML = message ? `<div class="notice ${isError ? 'error' : ''}">${message}</div>` : '';
 }
@@ -491,6 +653,19 @@ function saleAmountInputHTML(item) {
   const show = item.sales === 'YES';
   const val = item.saleAmount ? item.saleAmount : '';
   return `<input type="number" class="sale-amount-input" placeholder="Sale amount $" min="0" step="0.01" value="${val}" data-sale-amount="1" ${show ? '' : 'style="display:none"'} />`;
+}
+function salesInlineHTML(item) {
+  const val = item.saleAmount ? item.saleAmount : '';
+  const cls = item.sales === 'YES' ? 'sales-yes' : item.sales === 'N/A' ? 'sales-na' : 'sales-no';
+  return `<div class="sales-pill ${cls}">
+    <select data-sales-status="1" class="sales-pill-select">
+      ${SALES_STATUSES.map(s => `<option value="${s}" ${s === item.sales ? 'selected' : ''}>${s}</option>`).join('')}
+    </select>
+    <div class="inline-amount-wrap" style="${item.sales === 'YES' ? '' : 'display:none'}">
+      <span>$</span>
+      <input type="number" min="0" step="0.01" value="${val}" data-sale-amount="1" placeholder="0.00" />
+    </div>
+  </div>`;
 }
 
 async function loadEmployees() {
@@ -639,8 +814,10 @@ function getColumns(headers) {
   const normalized = headers.map(normalizeHeader);
   const find = (...names) => names.map(normalizeHeader).map(n => normalized.indexOf(n)).find(i => i >= 0);
   return {
+    no: find('NO.', 'NO', 'No.', 'No'),
     direction: find('Direction'),
     fromExt: find('From Ext.', 'From Ext', 'From Extension'),
+    toExt: find('To Ext.', 'To Ext', 'To Extension'),
     startTime: find('Start Time', 'Start'),
     duration: find('Duration')
   };
@@ -656,17 +833,31 @@ function aggregateRows(rows) {
   if (missing.length) throw new Error(`Missing required column(s): ${missing.join(', ')}`);
 
   const active = activeEmployees();
-  const resultMap = new Map(active.map(emp => [emp.id, { ...emp, dailyStatus: 'Working', callTimeSeconds: 0, totalCalls: 0, sales: 'NO', saleAmount: 0 }]));
+  const resultMap = new Map(active.map(emp => [emp.id, { ...emp, dailyStatus: 'Working', callTimeSeconds: 0, totalCalls: 0, sales: 'NO', saleAmount: 0, callTrend: new Array(CALL_TREND_BUCKET_COUNT).fill(0) }]));
 
   for (const row of rows.slice(1)) {
-    const ext = normalizeExtension(row[cols.fromExt]);
-    if (!ext) continue;
+    // Rule 1: skip rows with a blank "NO." column (duplicate/continuation rows)
+    if (cols.no !== undefined && !String(row[cols.no] ?? '').trim()) continue;
+
     const direction = row[cols.direction];
+    // Rule 2: exclude Outbound (Internal) / Inbound (Internal) rows entirely
+    if (directionIsInternal(direction)) continue;
+
+    // Rule 3: extension comes from From Ext., falling back to To Ext. if blank
+    let ext = normalizeExtension(row[cols.fromExt]);
+    if (!ext && cols.toExt !== undefined) ext = normalizeExtension(row[cols.toExt]);
+    if (!ext) continue;
+
     for (const emp of active) {
       if (!emp.extensions.includes(ext)) continue;
+      const item = resultMap.get(emp.id);
+
+      // Rule 4: Call Trend counts every qualifying call (any direction) by its Start Time bucket
+      const bucket = callTrendBucketIndex(row[cols.startTime]);
+      if (bucket >= 0) item.callTrend[bucket] += 1;
+
       const shouldCount = emp.role === 'Prod Team' ? directionIsOutbound(direction) : directionIsInboundOrOutbound(direction);
       if (!shouldCount) continue;
-      const item = resultMap.get(emp.id);
       item.totalCalls += 1;
       item.callTimeSeconds += parseDurationToSeconds(row[cols.duration]);
     }
@@ -714,32 +905,32 @@ function renderGroupedTables(containerId, data, mode='daily') {
       if (mode === 'eom') {
         if (isProd) {
           return `<tr>
-            <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+            <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></div></td>
             <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
             <td>${Math.round(r.avgTotalCalls)}</td>
             <td>${r.workingDays || 0}</td>
-            <td>${exceptionCount(r.absentDays)}</td>
             <td>${exceptionCount(r.paidLeaveDays)}</td>
+            <td>${exceptionCount(r.absentDays)}</td>
             <td>${exceptionCount(r.unpaidLeaveDays)}</td>
           </tr>`;
         }
         return `<tr class="${eomRowClass}">
-          <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></div></td>
           <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
           <td>${Math.round(r.avgTotalCalls)}</td>
           <td>${pill(r.salesStatus, r.hasSale ? 'yes' : 'no')}</td>
           <td>${pill(r.spiffStatus, r.spiffStatus === 'Qualified' ? 'yes' : r.spiffStatus === 'N/A' ? 'na' : 'no')}</td>
           <td>${r.workingDays || 0}</td>
-          <td>${exceptionCount(r.absentDays)}</td>
           <td>${exceptionCount(r.paidLeaveDays)}</td>
+          <td>${exceptionCount(r.absentDays)}</td>
           <td>${exceptionCount(r.unpaidLeaveDays)}</td>
         </tr>`;
       }
 
       if (isProd) {
         return `<tr class="${rowClass}" data-empid="${r.id}">
-          <td class="name-cell emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+          <td class="name-cell emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></div></td>
           <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
           <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
           <td>${r.totalCalls}</td>
@@ -747,19 +938,19 @@ function renderGroupedTables(containerId, data, mode='daily') {
       }
 
       return `<tr class="${rowClass}" data-empid="${r.id}">
-        <td class="name-cell emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></td>
+        <td class="name-cell emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong> <span class="small">(${r.extensions.join('/')})</span></div></td>
         <td>${selectHTML(DAILY_STATUSES, r.dailyStatus, 'data-daily-status="1"')}</td>
         <td>${pill(r.kpiStatus, r.kpiStatus === 'Passed' ? 'pass' : r.kpiStatus === 'N/A' ? 'na' : 'fail')}</td>
         <td>${secondsToHMS(r.callTimeSeconds)}</td>
         <td>${r.totalCalls}</td>
-        <td><div class="sales-cell">${salesSelectHTML(r.sales)}${saleAmountInputHTML(r)}</div></td>
+        <td>${salesInlineHTML(r)}</td>
       </tr>`;
     }).join('');
 
     const headers = mode === 'eom'
       ? (isProd
-        ? '<tr><th>Name</th><th>Avg Calls KPI Status</th><th>Daily Avg Total Calls</th><th>Working Days</th><th>Absent Days</th><th>Paid Leave Days</th><th>Unpaid Leave Days</th></tr>'
-        : '<tr><th>Name</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Daily Avg Total Calls</th><th>Sales</th><th>Spiff</th><th>Working Days</th><th>Absent Days</th><th>Paid Leave Days</th><th>Unpaid Leave Days</th></tr>')
+        ? '<tr><th>Name</th><th>Avg Calls KPI Status</th><th>Daily Avg Total Calls</th><th>Working Days</th><th>Paid Leave Days</th><th>Absent Days</th><th>Unpaid Leave Days</th></tr>'
+        : '<tr><th>Name</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Daily Avg Total Calls</th><th>Sales</th><th>Spiff</th><th>Working Days</th><th>Paid Leave Days</th><th>Absent Days</th><th>Unpaid Leave Days</th></tr>')
       : (isProd
         ? '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Total Calls</th></tr>'
         : '<tr><th>Name</th><th>Status</th><th>KPI Status</th><th>Call Time</th><th>Total Calls</th><th>With Sales</th></tr>');
@@ -772,6 +963,7 @@ function refreshDailyRender() {
   dailyResults = dailyResults.map(calcDailyStatus);
   renderGroupedTables('dailyTables', dailyResults, 'daily');
   updateSummary(dailyResults);
+  renderCallTrend(dailyResults);
   $('exportDailyBtn').disabled = !dailyResults.length;
 }
 $('dailyTables').addEventListener('change', (e) => {
@@ -782,7 +974,14 @@ $('dailyTables').addEventListener('change', (e) => {
   const item = dailyResults.find(r => r.id === id);
   if (!item) return;
   if (e.target.dataset.dailyStatus) item.dailyStatus = e.target.value;
-  if (e.target.dataset.salesStatus) item.sales = e.target.value;
+  if (e.target.dataset.salesStatus) {
+    item.sales = e.target.value;
+    // Show/hide the amount input based on sales status
+    const amountWrap = tr.querySelector('.inline-amount-wrap');
+    if (amountWrap) {
+      amountWrap.style.display = item.sales === 'YES' ? 'flex' : 'none';
+    }
+  }
   if (item.dailyStatus !== 'Working') item.sales = 'N/A';
   if (item.dailyStatus === 'Working' && item.sales === 'N/A') item.sales = 'NO';
   refreshDailyRender();
@@ -917,6 +1116,15 @@ function monthWorkingWeeks(month) {
 function formatLongDate(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
+function weekDateRangeLabel(weekDates) {
+  if (!weekDates.length) return '';
+  const start = new Date(`${weekDates[0]}T00:00:00`);
+  const end = new Date(`${weekDates[weekDates.length - 1]}T00:00:00`);
+  const startMonth = start.toLocaleDateString(undefined, { month: 'short' });
+  const endMonth = end.toLocaleDateString(undefined, { month: 'short' });
+  if (startMonth === endMonth) return `${startMonth} ${start.getDate()}-${end.getDate()}`;
+  return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}`;
+}
 function historyStatusClass(status) {
   if (status === 'Absent') return 'history-absent';
   if (status === 'On_Leave') return 'history-unpaid-leave';
@@ -942,7 +1150,7 @@ function historyEmployeeRow(r) {
   const salesText = isWorking ? (r.sales === 'YES' ? formatCurrency(r.saleAmount) : 'No Sale') : statusText;
 
   return `<tr>
-    <td class="emp-name-cell">${avatarHTML(r, 24)} <strong>${r.name}</strong></td>
+    <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 24)} <strong>${r.name}</strong></div></td>
     <td class="${timeClass}">${isWorking ? secondsToHMS(r.callTimeSeconds) : statusText}</td>
     <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
     <td class="${salesClass}">${salesText}</td>
@@ -955,7 +1163,7 @@ function historyProdRow(r) {
   const nonWorkingClass = historyStatusClass(r.dailyStatus);
 
   return `<tr>
-    <td class="emp-name-cell">${avatarHTML(r, 24)} <strong>${r.name}</strong></td>
+    <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 24)} <strong>${r.name}</strong></div></td>
     <td class="${isWorking ? '' : nonWorkingClass}">${isWorking ? r.totalCalls : statusText}</td>
     <td class="${isWorking ? (passed ? 'cell-pass' : 'cell-fail') : nonWorkingClass}">
       ${isWorking ? (passed ? 'Pass' : 'Fail') : statusText}
@@ -1030,7 +1238,8 @@ function buildSparklineSVG(values, goalSeconds) {
 function renderEOWCard(weekDates, weekIndex) {
   const weekReports = historyCache.filter(r => weekDates.includes(r.date) && !r.noWorkDay);
   if (!weekReports.length) {
-    return `<div class="card eow-card"><h3>Week ${weekIndex + 1} — End-of-Week Report</h3><div class="notice">No saved data for this week yet.</div></div>`;
+    const dateRange = weekDates.length ? ` (${weekDateRangeLabel(weekDates)})` : '';
+    return `<div class="card eow-card"><h3>Week ${weekIndex + 1}${dateRange} — End-of-Week Report</h3><div class="notice">No saved data for this week yet.</div></div>`;
   }
   const results = computeEOM(weekReports);
   const groups = ['Agent', 'Supervisor', 'Prod Team'];
@@ -1041,38 +1250,46 @@ function renderEOWCard(weekDates, weekIndex) {
     const isProd = role === 'Prod Team';
 
     const trs = rows.map(r => {
-      const dailyValues = weekReports
+      const dailyCallTimeValues = weekReports
         .map(rep => (rep.employees || []).find(e => e.id === r.id))
         .filter(e => e && e.dailyStatus === 'Working')
         .map(e => e.callTimeSeconds || 0);
+      
+      const dailyCallTotalValues = weekReports
+        .map(rep => (rep.employees || []).find(e => e.id === r.id))
+        .filter(e => e && e.dailyStatus === 'Working')
+        .map(e => e.totalCalls || 0);
 
       if (isProd) {
         return `<tr>
-          <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong></td>
-          <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+          <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong></div></td>
           <td>${Math.round(r.avgTotalCalls)}</td>
+          <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+          <td><div class="sparkline-wrap">${buildSparklineSVG(dailyCallTotalValues, 50)}</div></td>
           <td>${r.workingDays || 0}</td>
         </tr>`;
       }
       return `<tr>
-        <td class="emp-name-cell">${avatarHTML(r, 28)} <strong>${r.name}</strong></td>
-        <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+        <td class="emp-name-cell"><div class="name-inner">${avatarHTML(r, 28)} <strong>${r.name}</strong></div></td>
+        <td>${Math.round(r.avgTotalCalls)}</td>
         <td>${secondsToHMS(r.avgCallTimeSeconds)}</td>
+        <td>${pill(r.avgCallTimeStatus, r.avgCallTimeStatus === 'Passed' ? 'pass' : r.avgCallTimeStatus === 'N/A' ? 'na' : 'fail')}</td>
+        <td><div class="sparkline-wrap">${buildSparklineSVG(dailyCallTimeValues, AGENT_CALL_TIME_GOAL_SECONDS)}</div></td>
         <td>${pill(r.salesStatus, r.hasSale ? 'yes' : 'no')}</td>
         <td>${r.workingDays || 0}</td>
-        <td><div class="sparkline-wrap">${buildSparklineSVG(dailyValues, AGENT_CALL_TIME_GOAL_SECONDS)}</div></td>
       </tr>`;
     }).join('');
 
     const headers = isProd
-      ? '<tr><th>Name</th><th>Avg Calls KPI</th><th>Daily Avg Calls</th><th>Working Days</th></tr>'
-      : '<tr><th>Name</th><th>Avg Call Time Status</th><th>Daily Avg Call Time</th><th>Weekly Sales</th><th>Working Days</th><th>Weekly Trend</th></tr>';
+      ? '<tr><th>Name</th><th>Daily Avg Total Calls</th><th>Avg Calls KPI</th><th>Daily Call Trend</th><th>Working Days</th></tr>'
+      : '<tr><th>Name</th><th>Daily Avg Total Calls</th><th>Daily Avg Call Time</th><th>Avg Call Time Status</th><th>Call Time Weekly Trend</th><th>Weekly Sales</th><th>Working Days</th></tr>';
 
-    return `<h4>${role}s</h4><div style="overflow:auto"><table class="eom-table"><thead>${headers}</thead><tbody>${trs}</tbody></table></div>`;
+    return `<h4>${role}s</h4><div style="overflow:auto"><table class="eow-table"><thead>${headers}</thead><tbody>${trs}</tbody></table></div>`;
   }).join('');
 
+  const dateRange = weekDates.length ? ` (${weekDateRangeLabel(weekDates)})` : '';
   return `<div class="card eow-card">
-    <h3>Week ${weekIndex + 1} — End-of-Week Report</h3>
+    <h3>Week ${weekIndex + 1}${dateRange} — End-of-Week Report</h3>
     ${body}
   </div>`;
 }
@@ -1088,9 +1305,11 @@ function renderHistory(reports) {
       <div class="daily-card-grid">
         ${weekDates.map(date => dailyHistoryCard(date, reportMap.get(date))).join('')}
       </div>
-      ${renderEOWCard(weekDates, i)}
     </section>
   `).join('') || '<div class="notice">No weekdays found for this month.</div>';
+
+  $('historyTablesEow').innerHTML = weeks.map((weekDates, i) => renderEOWCard(weekDates, i)).join('')
+    || '<div class="notice">No weekdays found for this month.</div>';
 }
 function weekOptionLabel(weekDates, idx) {
   const start = new Date(`${weekDates[0]}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -1124,20 +1343,23 @@ function rankList(totals) {
     .map(e => ({ ...e, total: totals.get(e.id) || 0 }))
     .sort((a, b) => b.total - a.total);
 }
-function renderSalesLeaderboard(weekDates, currentTotals, priorTotals) {
+function renderSalesLeaderboard(weekDates, currentTotals, priorTotals, monthReports) {
   const current = rankList(currentTotals);
   const prior = rankList(priorTotals);
   const priorTop3Ids = prior.filter(e => e.total >= SALES_QUALIFY_THRESHOLD).slice(0, 3).map(e => e.id);
   const priorQualifiedIds = new Set(prior.filter(e => e.total >= SALES_QUALIFY_THRESHOLD).map(e => e.id));
 
+  // Weekly rendering - only agents with sales
   const qualifiers = current.filter(e => e.total >= SALES_QUALIFY_THRESHOLD);
   const top3 = qualifiers.slice(0, 3);
+  const allWithSales = current.filter(e => e.total > 0); // Only agents with any sales
 
   const start = formatLongDate(weekDates[0]);
   const end = formatLongDate(weekDates[weekDates.length - 1]);
-  $('salesHeader').innerHTML = `<h3 style="margin-bottom:4px">🏆 Top Agents — Weekly Sales</h3><div class="small" style="margin-bottom:14px">${start} – ${end} &middot; $${SALES_QUALIFY_THRESHOLD.toLocaleString()}+ to qualify for Top 3</div>`;
+  $('weeklyHeader').innerHTML = `<h3 style="margin-bottom:4px; text-align:center;">🏆 Top Agents — Weekly Sales</h3><div class="small" style="margin-bottom:14px; text-align:center;">${start} – ${end}</div>`;
 
   const medals = ['🥇', '🥈', '🥉'];
+  const prizes = ['₱5,000', '₱3,000', '₱2,000'];
   const slots = [0, 1, 2].map(i => {
     const entry = top3[i];
     if (!entry) {
@@ -1149,17 +1371,34 @@ function renderSalesLeaderboard(weekDates, currentTotals, priorTotals) {
       ${avatarHTML(entry, 72)}
       <div class="podium-name">${entry.name}</div>
       <div class="podium-amount">${formatCurrency(entry.total)}</div>
+      <div class="prize-badge">${prizes[i]}</div>
       ${isNew ? '<div class="new-qualifier-badge">🎉 New Qualifier</div>' : ''}
     </div>`;
   });
-  $('salesPodium').innerHTML = slots.join('');
+  $('weeklyPodium').innerHTML = slots.join('');
 
-  const rows = current.map((e, i) => {
+  // Incentive info
+  $('weeklyIncentive').innerHTML = `
+    <div style="font-weight:700; margin-bottom:10px;">💰 Weekly Prize Structure</div>
+    <div style="font-size:12px; background:#fff9e6; border-left:3px solid #f5d061; padding:8px 10px; margin-bottom:10px; border-radius:4px; color:#1f3a5f;">
+      ✓ <strong>Qualification Rule:</strong> Agents need $5,000+ in weekly sales to qualify for Top 3
+    </div>
+    <div class="prize-row"><span>🥇 1st Place:</span> <strong>₱5,000</strong></div>
+    <div class="prize-row"><span>🥈 2nd Place:</span> <strong>₱3,000</strong></div>
+    <div class="prize-row"><span>🥉 3rd Place:</span> <strong>₱2,000</strong></div>
+    <div style="margin-top:10px; padding-top:10px; border-top:1px solid #a8c8eb; font-size:12px; color:#1f3a5f;">
+      ⭐ <strong>Consistency Bonus:</strong> 1st place for all 4 weeks of the month = +₱5,000
+    </div>
+  `;
+
+  const weeklyRows = allWithSales.map((e, i) => {
     const rank = i + 1;
     const priorRank = priorTop3Ids.includes(e.id) ? priorTop3Ids.indexOf(e.id) + 1 : null;
     let moveTag = '';
-    if (rank <= 3) {
-      if (!priorTop3Ids.includes(e.id) && e.total >= SALES_QUALIFY_THRESHOLD) {
+    let qualStatus = '';
+    if (e.total >= SALES_QUALIFY_THRESHOLD) {
+      qualStatus = pill('Qualified', 'yes');
+      if (!priorTop3Ids.includes(e.id)) {
         moveTag = '<span class="rank-move-new">NEW to Top 3</span>';
       } else if (priorRank && priorRank !== rank) {
         moveTag = priorRank > rank ? `<span class="rank-move-up">▲ moved up</span>` : `<span class="rank-move-down">▼ moved down</span>`;
@@ -1167,16 +1406,16 @@ function renderSalesLeaderboard(weekDates, currentTotals, priorTotals) {
     }
     return `<tr>
       <td>#${rank}</td>
-      <td class="emp-name-cell">${avatarHTML(e, 36)} <strong>${e.name}</strong></td>
+      <td class="emp-name-cell"><div class="name-inner">${avatarHTML(e, 36)} <strong>${e.name}</strong></div></td>
       <td>${formatCurrency(e.total)}</td>
-      <td>${e.total >= SALES_QUALIFY_THRESHOLD ? pill('Qualified', 'yes') : ''}</td>
+      <td>${qualStatus}</td>
       <td>${moveTag}</td>
     </tr>`;
   }).join('');
-  $('salesRankedList').innerHTML = `<div style="overflow:auto"><table><thead><tr><th>Rank</th><th>Agent</th><th>Weekly Sales</th><th>Status</th><th>Change</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No agents found.</td></tr>'}</tbody></table></div>`;
+  $('weeklyRankedList').innerHTML = `<div style="overflow:auto; max-width:700px; margin:0 auto;"><table><thead><tr><th>Rank</th><th>Agent</th><th>Weekly Sales</th><th>Status</th><th>Change</th></tr></thead><tbody>${weeklyRows || '<tr><td colspan="5">No agents with sales found.</td></tr>'}</tbody></table></div>`;
 
   const almost = current.filter(e => e.total >= SALES_QUALIFY_THRESHOLD - SALES_ALMOST_GAP && e.total < SALES_QUALIFY_THRESHOLD);
-  $('salesAlmostThere').innerHTML = almost.length ? almost.map(e => {
+  $('weeklyAlmostThere').innerHTML = almost.length ? almost.map(e => {
     const pct = Math.min(100, Math.round((e.total / SALES_QUALIFY_THRESHOLD) * 100));
     const remaining = SALES_QUALIFY_THRESHOLD - e.total;
     return `<div class="almost-there-row">
@@ -1188,6 +1427,66 @@ function renderSalesLeaderboard(weekDates, currentTotals, priorTotals) {
       </div>
     </div>`;
   }).join('') : '<div class="notice">No agents currently in this range.</div>';
+
+  // Monthly rendering
+  renderMonthlyLeaderboard(monthReports);
+}
+
+function renderMonthlyLeaderboard(monthReports) {
+  const monthlyTotals = computeSalesTotals(monthReports);
+  const monthlyRanked = rankList(monthlyTotals);
+  const top3Monthly = monthlyRanked.slice(0, 3);
+
+  // Top 3 card
+  const medals = ['🥇', '🥈', '🥉'];
+  const top3Slots = [0, 1, 2].map(i => {
+    const entry = top3Monthly[i];
+    if (!entry) {
+      return `<div class="podium-slot rank-${i + 1}"><div class="podium-medal">${medals[i]}</div><div class="podium-empty">No agent yet</div></div>`;
+    }
+    return `<div class="podium-slot rank-${i + 1}">
+      <div class="podium-medal">${medals[i]}</div>
+      ${avatarHTML(entry, 72)}
+      <div class="podium-name">${entry.name}</div>
+      <div class="podium-amount">${formatCurrency(entry.total)}</div>
+    </div>`;
+  });
+  $('monthlyTop3').innerHTML = `<div class="podium">${top3Slots.join('')}</div>`;
+
+  // Total monthly sales vs. $100k goal
+  const MONTHLY_SALES_GOAL = 100000;
+  const totalMonthlySales = monthlyRanked.reduce((sum, e) => sum + (e.total || 0), 0);
+  const pct = Math.min(100, (totalMonthlySales / MONTHLY_SALES_GOAL) * 100);
+  const goalReached = totalMonthlySales >= MONTHLY_SALES_GOAL;
+  const remaining = Math.max(0, MONTHLY_SALES_GOAL - totalMonthlySales);
+  $('monthlySalesGoal').innerHTML = `
+    <div style="text-align:center; padding:16px; background:linear-gradient(135deg, #f8fbff, #ffffff); border-radius:12px; border:1px solid #c9dcfa;">
+      <div style="margin-bottom:12px;">
+        <div style="font-size:14px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">💰 Total Monthly Sales</div>
+        <div style="font-size:28px; color:var(--navy); font-weight:800; margin-bottom:4px;">${formatCurrency(totalMonthlySales)}</div>
+        <div style="font-size:12px; color:var(--muted);">of ${formatCurrency(MONTHLY_SALES_GOAL)} goal</div>
+      </div>
+      <div style="background:#ddf0ff; border-radius:999px; height:12px; overflow:hidden; margin-bottom:10px;">
+        <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, var(--blue-deep), var(--green-deep)); border-radius:999px; transition:width 0.3s ease;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+        <span style="color:${goalReached ? 'var(--green-deep)' : 'var(--muted)'}; font-weight:700;">${Math.round(pct)}% Complete</span>
+        <span style="color:${goalReached ? 'var(--green-deep)' : 'var(--red-deep)'}; font-weight:700;">${goalReached ? '✓ Goal Reached!' : formatCurrency(remaining) + ' remaining'}</span>
+      </div>
+    </div>`;
+
+  // Full monthly ranking - all agents
+  const monthlyRows = monthlyRanked.map((e, i) => {
+    const rank = i + 1;
+    const salesColor = e.total > 0 ? 'var(--green-deep)' : 'var(--red-deep)';
+    return `<tr>
+      <td>#${rank}</td>
+      <td class="emp-name-cell"><div class="name-inner">${avatarHTML(e, 36)} <strong>${e.name}</strong></div></td>
+      <td style="color:${salesColor}; font-weight:700;">${formatCurrency(e.total)}</td>
+    </tr>`;
+  }).join('');
+
+  $('monthlyRankedList').innerHTML = `<div style="overflow:auto; max-width:560px; margin:0 auto;"><table><thead><tr><th>Rank</th><th>Agent</th><th>Monthly Sales</th></tr></thead><tbody>${monthlyRows || '<tr><td colspan="3">No agents found.</td></tr>'}</tbody></table></div>`;
 }
 async function loadSalesLeaderboard() {
   try {
@@ -1209,17 +1508,34 @@ async function loadSalesLeaderboard() {
     const currentTotals = computeSalesTotals(weekReports);
     const priorTotals = computeSalesTotals(priorReports);
 
-    renderSalesLeaderboard(weekDates, currentTotals, priorTotals);
+    renderSalesLeaderboard(weekDates, currentTotals, priorTotals, monthReports);
     showMsg('salesMsg', '');
   } catch (err) {
     showMsg('salesMsg', firebaseErrorMessage(err), true);
   }
+}
+function updateSalesWeekVisibility() {
+  const activeTab = document.querySelector('.sales-tab-btn.active')?.dataset.tab || 'weekly';
+  const showWeek = activeTab === 'weekly';
+  $('salesWeekLabel').style.display = showWeek ? '' : 'none';
+  $('salesWeekSelect').style.display = showWeek ? '' : 'none';
 }
 $('salesMonth').addEventListener('change', () => { populateSalesWeekSelect(); loadSalesLeaderboard(); });
 $('salesWeekSelect').addEventListener('change', loadSalesLeaderboard);
 $('loadSalesBtn').addEventListener('click', loadSalesLeaderboard);
 
 $('loadHistoryBtn').addEventListener('click', loadHistory);
+
+for (const htabBtn of document.querySelectorAll('.history-tab-btn')) {
+  htabBtn.addEventListener('click', () => {
+    document.querySelectorAll('.history-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.history-tab-content').forEach(c => c.classList.remove('active'));
+    htabBtn.classList.add('active');
+    const tabId = `historyTab${htabBtn.dataset.htab.charAt(0).toUpperCase()}${htabBtn.dataset.htab.slice(1)}`;
+    $(tabId).classList.add('active');
+  });
+}
+
 $('historyTables').addEventListener('click', async (e) => {
   const markDate = e.target.dataset.markNoworkday;
   if (markDate) {
@@ -1266,7 +1582,7 @@ $('exportEomBtn').addEventListener('click', async () => {
   const month = $('historyMonth').value || currentMonth();
   const reports = await loadReportsForMonth(month);
   const results = computeEOM(reports);
-  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Total Sale Amount','Spiff','Working Days','Absent Days','Paid Leave Days','Unpaid Leave Days']].concat(results.map(r => [
+  const rows = [['Name','KPI Status','Daily Avg Call Time','Daily Avg Total Calls','Sales','Total Sale Amount','Spiff','Working Days','Paid Leave Days','Absent Days','Unpaid Leave Days']].concat(results.map(r => [
     `${r.name} (${r.extensions.join('/')})`,
     r.avgCallTimeStatus,
     r.role === 'Prod Team' ? '' : secondsToHMS(r.avgCallTimeSeconds),
@@ -1275,8 +1591,8 @@ $('exportEomBtn').addEventListener('click', async () => {
     r.role === 'Prod Team' ? '' : (r.totalSaleAmount || 0).toFixed(2),
     r.role === 'Prod Team' ? '' : r.spiffStatus,
     r.workingDays || 0,
-    r.absentDays || 0,
     r.paidLeaveDays || 0,
+    r.absentDays || 0,
     r.unpaidLeaveDays || 0
   ]));
   downloadCSV(`eom-${month}.csv`, rows);
@@ -1291,6 +1607,18 @@ $('exportHistoryBtn').addEventListener('click', async () => {
   downloadCSV(`monthly-history-${$('historyMonth').value || currentMonth()}.csv`, rows);
 });
 
+// Sales leaderboard tab switching
+for (const tabBtn of document.querySelectorAll('.sales-tab-btn')) {
+  tabBtn.addEventListener('click', () => {
+    document.querySelectorAll('.sales-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sales-tab-content').forEach(c => c.classList.remove('active'));
+    tabBtn.classList.add('active');
+    const tabId = `salesTab${tabBtn.dataset.tab.charAt(0).toUpperCase()}${tabBtn.dataset.tab.slice(1)}`;
+    $(tabId).classList.add('active');
+    updateSalesWeekVisibility();
+  });
+}
+
 for (const btn of document.querySelectorAll('.nav-button')) {
   btn.addEventListener('click', async () => {
     document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
@@ -1300,10 +1628,14 @@ for (const btn of document.querySelectorAll('.nav-button')) {
     if (btn.dataset.page === 'historyPage') await loadHistory();
     if (btn.dataset.page === 'salesPage') {
       if (!$('salesWeekSelect').dataset.weeksJson) populateSalesWeekSelect();
+      updateSalesWeekVisibility();
       await loadSalesLeaderboard();
     }
   });
 }
+
+populateSalesWeekSelect();
+updateSalesWeekVisibility();
 
 const employeesLoaded = await loadEmployees();
 if (employeesLoaded && !employees.length) showMsg('employeeMsg', 'No employees found yet. Click Load Default Employees to initialize your team list.');
