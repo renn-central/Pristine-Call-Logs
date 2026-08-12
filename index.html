@@ -288,48 +288,55 @@
         <div class="card">
           <div class="section-title">
             <h2>Employee List</h2>
-            <button id="seedDefaultsBtn" class="secondary">Load Default Employees</button>
-          </div>
-          <div class="notice">Only active employees appear in Daily KPI and EOM reports. Extensions can be comma-separated, for example <strong>815,824</strong>.</div>
-          <form id="employeeForm" class="toolbar">
-            <input id="empEditId" type="hidden" />
-            <input id="empPhotoBase64" type="hidden" />
-            <div class="photo-preview-wrap">
-              <span id="empPhotoPreviewWrap"></span>
-              <input id="empPhotoFile" type="file" accept="image/*" title="Employee photo (shown on the Sales Leaderboard)" />
+            <div style="display:flex; gap:8px;">
+              <button id="empAddBtn" class="primary">Add Employee</button>
+              <button id="seedDefaultsBtn" class="secondary">Load Default Employees</button>
             </div>
-            <input id="empName" placeholder="Phone Name (internal, used for call log matching)" required />
-            <select id="empRole" required>
-              <option value="Agent">Agent</option>
-              <option value="Supervisor">Supervisor</option>
-              <option value="Prod Team">Prod Team</option>
-            </select>
-            <input id="empWorkPhone" placeholder="Work Phone" />
-            <input id="empExtensions" placeholder="Extensions e.g. 815,824" required />
-            <input id="empPayrollAccNo" placeholder="Payroll Acc No." />
-            <input id="empStartDate" type="date" />
-            <select id="empStatus">
-              <option value="active">Active</option>
-              <option value="active-kpi-na">Active – KPI N/A</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <input id="empEndDate" type="date" />
-          </form>
-          <div class="notice">Employee Data (shown on the ID card popup). All optional.</div>
-          <form id="employeeDataForm" class="toolbar">
-            <input id="empLegalName" placeholder="Employee Name (legal/government name)" />
-            <input id="empIdNo" placeholder="ID No." />
-            <input id="empBirthday" type="date" title="Birthday" />
-            <input id="empPersonalPhone" placeholder="Phone number" />
-            <input id="empPersonalEmail" type="email" placeholder="Personal email" />
-            <input id="empWorkEmail" type="email" placeholder="Work email" />
-            <input id="empAddress" placeholder="Address" style="min-width:220px" />
-            <input id="empEmergencyName" placeholder="Emergency contact name" />
-            <input id="empEmergencyPhone" placeholder="Emergency contact phone" />
-          </form>
-          <div class="toolbar">
-            <button id="empSubmitBtn" class="primary" type="button">Add Employee</button>
-            <button id="empCancelEditBtn" class="secondary" type="button" style="display:none;">Cancel Edit</button>
+          </div>
+          <div id="employeeFormWrap" style="display:none">
+            <div class="notice">Only active employees appear in Daily KPI and EOM reports. Extensions can be comma-separated, for example <strong>815,824</strong>.</div>
+            <form id="employeeForm" class="toolbar">
+              <input id="empEditId" type="hidden" />
+              <input id="empPhotoBase64" type="hidden" />
+              <div class="photo-preview-wrap">
+                <span id="empPhotoPreviewWrap"></span>
+                <input id="empPhotoFile" type="file" accept="image/*" title="Employee photo (shown on the Sales Leaderboard)" />
+              </div>
+              <input id="empName" placeholder="Phone Name (internal, used for call log matching)" required />
+              <select id="empRole" required>
+                <option value="Agent">Sales Agent</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Prod Team">Admin Support</option>
+                <option value="Productions Head">Productions Head</option>
+                <option value="Sales Associate">Sales Associate</option>
+              </select>
+              <input id="empWorkPhone" placeholder="Work Phone" />
+              <input id="empExtensions" placeholder="Extensions e.g. 815,824" required />
+              <input id="empPayrollAccNo" placeholder="Payroll Acc No." />
+              <input id="empStartDate" type="date" />
+              <select id="empStatus">
+                <option value="active">Active</option>
+                <option value="active-kpi-na">Active – KPI N/A</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <input id="empEndDate" type="date" />
+            </form>
+            <div class="notice">Employee Data (shown on the ID card popup). All optional.</div>
+            <form id="employeeDataForm" class="toolbar">
+              <input id="empLegalName" placeholder="Employee Name (legal/government name)" />
+              <input id="empIdNo" placeholder="ID No." />
+              <input id="empBirthday" type="date" title="Birthday" />
+              <input id="empPersonalPhone" placeholder="Phone number" />
+              <input id="empPersonalEmail" type="email" placeholder="Personal email" />
+              <input id="empWorkEmail" type="email" placeholder="Work email" />
+              <input id="empAddress" placeholder="Address" style="min-width:220px" />
+              <input id="empEmergencyName" placeholder="Emergency contact name" />
+              <input id="empEmergencyPhone" placeholder="Emergency contact phone" />
+            </form>
+            <div class="toolbar">
+              <button id="empSubmitBtn" class="primary" type="button">Add Employee</button>
+              <button id="empCancelEditBtn" class="secondary" type="button">Cancel</button>
+            </div>
           </div>
           <div id="employeeMsg"></div>
           <div style="overflow:auto"><table id="employeesTable"></table></div>
@@ -750,13 +757,18 @@ async function seedDefaults() {
     showMsg('employeeMsg', firebaseErrorMessage(err), true);
   }
 }
+function roleLabel(role) {
+  const map = { 'Agent': 'Sales Agent', 'Prod Team': 'Admin Support' };
+  return map[role] || role || '';
+}
 function statusPill(status) {
   if (status === 'active-kpi-na') return pill('Active – KPI N/A', 'warn');
   if (status === 'active') return pill('Active', 'pass');
   return pill('Inactive', 'na');
 }
 function renderEmployees() {
-  const rows = employees.map(emp => `
+  const sorted = [...employees].sort((a, b) => (a.status === 'inactive' ? 1 : 0) - (b.status === 'inactive' ? 1 : 0));
+  const rows = sorted.map(emp => `
     <tr class="${emp.status === 'inactive' ? 'status-inactive' : ''}">
       <td>
         <button class="edit" data-edit-emp="${emp.id}">Edit</button>
@@ -764,9 +776,10 @@ function renderEmployees() {
       </td>
       <td>${avatarHTML(emp, 36)}</td>
       <td><strong>${emp.name}</strong></td>
-      <td>${emp.role}</td>
+      <td>${roleLabel(emp.role)}</td>
       <td>${emp.workPhone || ''}</td>
       <td>${(emp.extensions || []).join(', ')}</td>
+      <td>${emp.workEmail || ''}</td>
       <td>${emp.payrollAccNo || ''}</td>
       <td>${statusPill(emp.status)}</td>
       <td>${emp.startDate || ''}</td>
@@ -774,9 +787,12 @@ function renderEmployees() {
       <td><button class="view-emp-btn" data-view-emp="${emp.id}">View Employee Data</button></td>
     </tr>`).join('');
   $('employeesTable').innerHTML = `
-    <thead><tr><th>Action</th><th>Photo</th><th>Name</th><th>Role</th><th>Work Phone</th><th>Phone Extension</th><th>Payroll Acc No.</th><th>Status</th><th>Start Date</th><th>End Date</th><th>Employee Data</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="11">No employees yet. Click Load Default Employees or add employees manually.</td></tr>`}</tbody>`;
+    <thead><tr><th>Action</th><th>Photo</th><th>Name</th><th>Role</th><th>Work Phone</th><th>Phone Ext.</th><th>Work Email</th><th>Payroll Acc No.</th><th>Status</th><th>Start Date</th><th>End Date</th><th>Employee Data</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="12">No employees yet. Click Load Default Employees or add employees manually.</td></tr>`}</tbody>`;
 }
+
+function showEmployeeFormWrap() { $('employeeFormWrap').style.display = ''; }
+function hideEmployeeFormWrap() { $('employeeFormWrap').style.display = 'none'; }
 
 function resetEmployeeForm() {
   $('employeeForm').reset();
@@ -785,7 +801,6 @@ function resetEmployeeForm() {
   $('empPhotoBase64').value = '';
   $('empPhotoPreviewWrap').innerHTML = avatarHTML(null, 72);
   $('empSubmitBtn').textContent = 'Add Employee';
-  $('empCancelEditBtn').style.display = 'none';
 }
 
 function startEmployeeEdit(emp) {
@@ -811,7 +826,7 @@ function startEmployeeEdit(emp) {
   $('empEmergencyName').value = emp.emergencyName || '';
   $('empEmergencyPhone').value = emp.emergencyPhone || '';
   $('empSubmitBtn').textContent = 'Update Employee';
-  $('empCancelEditBtn').style.display = '';
+  showEmployeeFormWrap();
   showMsg('employeeMsg', `Editing ${emp.name}. Make your changes, then click Update Employee.`);
   $('empName').focus();
 }
@@ -861,6 +876,7 @@ async function handleEmployeeFormSubmit(e) {
     }
     await saveEmployee(emp);
     resetEmployeeForm();
+    hideEmployeeFormWrap();
     await loadEmployees();
     showMsg('employeeMsg', editId ? 'Employee updated.' : 'Employee saved.');
   } catch (err) {
@@ -870,9 +886,16 @@ async function handleEmployeeFormSubmit(e) {
 $('employeeForm').addEventListener('submit', handleEmployeeFormSubmit);
 $('employeeDataForm').addEventListener('submit', handleEmployeeFormSubmit);
 $('empSubmitBtn').addEventListener('click', handleEmployeeFormSubmit);
+$('empAddBtn').addEventListener('click', () => {
+  resetEmployeeForm();
+  showEmployeeFormWrap();
+  $('employeeMsg').innerHTML = '';
+  $('empName').focus();
+});
 $('empCancelEditBtn').addEventListener('click', () => {
   resetEmployeeForm();
-  showMsg('employeeMsg', 'Edit cancelled.');
+  hideEmployeeFormWrap();
+  showMsg('employeeMsg', 'Cancelled.');
 });
 $('seedDefaultsBtn').addEventListener('click', seedDefaults);
 $('employeesTable').addEventListener('click', async (e) => {
@@ -933,7 +956,7 @@ function openEmpDataModal(emp) {
     <div class="id-card-photo-row">
       ${avatarHTML(emp, 96)}
       <div class="id-card-name">${emp.legalName || emp.name || ''}</div>
-      <div class="id-card-role">${pill(emp.role || '', 'na')}</div>
+      <div class="id-card-role">${pill(roleLabel(emp.role), 'na')}</div>
     </div>
     <div class="id-card-body">
       ${idCardField('ID No.', emp.idNo)}
