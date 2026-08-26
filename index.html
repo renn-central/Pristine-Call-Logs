@@ -234,8 +234,10 @@
 
     .year-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(900px, 1fr)); gap: 24px; margin-top: 16px; }
     .agent-year-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
-    .agent-year-card h3 { margin: 0 0 16px; font-size: 18px; color: var(--navy); display: flex; align-items: center; gap: 10px; }
+    .agent-year-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .agent-year-card h3 { margin: 0; font-size: 18px; color: var(--navy); display: flex; align-items: center; gap: 10px; }
     .agent-year-card .avatar { width: 32px; height: 32px; }
+    .year-edit-btn { white-space: nowrap; flex-shrink: 0; }
     .year-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .year-table th, .year-table td { padding: 8px; border: 1px solid var(--line); text-align: center; }
     .year-table th { background: #f0f6ff; color: var(--navy); font-weight: 700; }
@@ -1113,55 +1115,133 @@ async function loadHistory() {
 }
 
 const YEAR_SUMMARY_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const YEAR_SUMMARY_SALES_HIGHLIGHT_THRESHOLD = 4000;
+// Prod Team agents (e.g. Patrick Crespo) are measured on call volume, not call time or sales -
+// these columns don't apply to them and are hidden entirely on their card.
+const YEAR_SUMMARY_COLUMNS = [
+  { field: 'avgCallTimeStatus', label: 'Avg Call Time Status' },
+  { field: 'avgCallTime', label: 'Daily Avg Call Time', hideForProdTeam: true },
+  { field: 'avgTotalCalls', label: 'Daily Avg Total Calls' },
+  { field: 'workingDays', label: 'Working Days' },
+  { field: 'paidLeaveDays', label: 'Paid Leave Days' },
+  { field: 'absentDays', label: 'Absent Days' },
+  { field: 'unpaidLeaveDays', label: 'Unpaid Leave Days' },
+  { field: 'totalSale', label: 'Total Sale', hideForProdTeam: true }
+];
 let yearSummaryCache = {}; // { [agentId]: [monthData x12] }
 let yearSummaryEditMode = new Set(); // agent ids currently unlocked for editing
+
+const YEAR_SUMMARY_OVERRIDE_FIELDS = ['avgCallTimeStatus', 'avgCallTime', 'avgTotalCalls', 'workingDays', 'paidLeaveDays', 'absentDays', 'unpaidLeaveDays', 'totalSale'];
+const YEAR_SUMMARY_OVERRIDES_COLLECTION = 'yearSummaryOverrides';
+function yearSummaryOverrideDocId(agentId, monthStr) { return `${agentId}_${monthStr}`; }
+
+// Manual edits made on the Year Summary cards are saved to Firestore (not localStorage) so every
+// device sees the same data. Loads every override doc once per page load and indexes it by agent+month.
+async function loadYearSummaryOverrides() {
+  const map = {}; // { [agentId]: { [monthStr]: { field: value, ... } } }
+  try {
+    const snap = await getDocs(collection(db, YEAR_SUMMARY_OVERRIDES_COLLECTION));
+    snap.docs.forEach(d => {
+      const data = d.data() || {};
+      const agentId = data.agentId;
+      const monthStr = data.monthStr;
+      if (!agentId || !monthStr) return;
+      const fields = {};
+      YEAR_SUMMARY_OVERRIDE_FIELDS.forEach(f => { if (data[f] !== undefined) fields[f] = data[f]; });
+      if (!map[agentId]) map[agentId] = {};
+      map[agentId][monthStr] = fields;
+    });
+  } catch (err) {
+    showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
+  }
+  return map;
+}
+
+// One-time migration: some edits may still be sitting in this browser's localStorage from before Year
+// Summary edits were synced through Firebase. Fold in any field Firestore doesn't already have and push
+// it up, so this device's past edits become visible to every device going forward. Firestore always wins
+// on a per-field basis, so a value already synced from another device is never clobbered by stale local data.
+async function migrateLegacyLocalYearSummaryOverrides(overridesMap) {
+  const writes = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('yearSummary_')) continue;
+    const match = key.slice('yearSummary_'.length).match(/^(.+)_(\d{4}-\d{2})$/);
+    if (!match) continue;
+    const [, agentId, monthStr] = match;
+    let localFields;
+    try { localFields = JSON.parse(localStorage.getItem(key) || '{}'); } catch (err) { continue; }
+    if (!localFields || !Object.keys(localFields).length) continue;
+
+    const existing = (overridesMap[agentId] && overridesMap[agentId][monthStr]) || {};
+    const missing = {};
+    Object.entries(localFields).forEach(([field, value]) => {
+      if (existing[field] === undefined && value !== '' && value !== undefined && value !== null) missing[field] = value;
+    });
+    if (!Object.keys(missing).length) continue;
+
+    if (!overridesMap[agentId]) overridesMap[agentId] = {};
+    overridesMap[agentId][monthStr] = { ...existing, ...missing };
+    writes.push(setDoc(doc(db, YEAR_SUMMARY_OVERRIDES_COLLECTION, yearSummaryOverrideDocId(agentId, monthStr)),
+      { agentId, monthStr, ...missing, updatedAt: new Date().toISOString() }, { merge: true }));
+  }
+  if (writes.length) {
+    try { await Promise.all(writes); } catch (err) { /* best-effort migration; ignore individual failures */ }
+  }
+}
 
 async function loadYearSummary() {
   try {
     showMsg('yearSummaryMsg', 'Loading...');
     const active = activeEmployees();
     const year = new Date().getFullYear();
-    const nextCache = {};
 
-    await Promise.all(active.map(async (agent) => {
+    // Fetch each month's reports once and share across all agents, instead of once per agent per month
+    const monthReportsByMonth = {};
+    for (let m = 5; m <= 12; m++) {
+      const monthStr = `${year}-${String(m).padStart(2, '0')}`;
+      try {
+        monthReportsByMonth[monthStr] = await loadReportsForMonth(monthStr);
+      } catch (err) {
+        monthReportsByMonth[monthStr] = [];
+      }
+    }
+
+    // Manual overrides are synced through Firebase so every device sees the same edits
+    const overridesByAgentMonth = await loadYearSummaryOverrides();
+    await migrateLegacyLocalYearSummaryOverrides(overridesByAgentMonth);
+
+    const nextCache = {};
+    for (const agent of active) {
       const monthData = [];
       for (let m = 1; m <= 12; m++) {
         const monthStr = `${year}-${String(m).padStart(2, '0')}`;
 
-        // First check localStorage for manually entered data
-        const storageKey = `yearSummary_${agent.id}_${monthStr}`;
-        const storedData = JSON.parse(localStorage.getItem(storageKey) || '{}');
-
-        // If no stored data, try to load from reports (May-Dec)
         let reportData = {};
-        if (Object.keys(storedData).length === 0 && m >= 5) {
-          try {
-            const monthReports = await loadReportsForMonth(monthStr);
-            // Some agents' EOM data for specific months was saved under an old name
-            // before their employee record was renamed - match those rows in too.
-            const legacyNameForMonth = (YEAR_SUMMARY_LEGACY_NAMES[agent.name] || {})[m];
-            const agentData = computeEOMForEmployee(monthReports, agent, legacyNameForMonth ? [legacyNameForMonth] : []);
-            reportData = {
-              avgCallTimeStatus: agentData.avgCallTimeStatus || '',
-              avgCallTime: agentData.role === 'Prod Team' ? '' : (agentData.workingDays ? secondsToHMS(agentData.avgCallTimeSeconds) : ''),
-              avgTotalCalls: agentData.workingDays ? Math.round(agentData.avgTotalCalls) : '',
-              workingDays: agentData.workingDays || '',
-              paidLeaveDays: agentData.paidLeaveDays || '',
-              absentDays: agentData.absentDays || '',
-              unpaidLeaveDays: agentData.unpaidLeaveDays || '',
-              totalSale: agentData.role === 'Prod Team' ? '' : (agentData.workingDays ? agentData.totalSaleAmount.toFixed(2) : '')
-            };
-          } catch (err) {
-            reportData = {};
-          }
+        if (m >= 5) {
+          // Some agents' EOM data for specific months was saved under an old name
+          // before their employee record was renamed - match those rows in too.
+          const legacyNameForMonth = (YEAR_SUMMARY_LEGACY_NAMES[agent.name] || {})[m];
+          const agentData = computeEOMForEmployee(monthReportsByMonth[monthStr] || [], agent, legacyNameForMonth ? [legacyNameForMonth] : []);
+          reportData = {
+            avgCallTimeStatus: agentData.avgCallTimeStatus || '',
+            avgCallTime: agentData.role === 'Prod Team' ? '' : (agentData.workingDays ? secondsToHMS(agentData.avgCallTimeSeconds) : ''),
+            avgTotalCalls: agentData.workingDays ? Math.round(agentData.avgTotalCalls) : '',
+            workingDays: agentData.workingDays || '',
+            paidLeaveDays: agentData.paidLeaveDays || '',
+            absentDays: agentData.absentDays || '',
+            unpaidLeaveDays: agentData.unpaidLeaveDays || '',
+            totalSale: agentData.role === 'Prod Team' ? '' : (agentData.workingDays ? formatCurrency(agentData.totalSaleAmount) : '')
+          };
         }
 
-        // Merge: use stored data if available, fallback to report data
-        const data = Object.keys(storedData).length > 0 ? storedData : reportData;
-        monthData.push(data);
+        // Manual overrides take precedence over auto-computed EOM data, but only per-field -
+        // a month is never blanked out just because one of its other fields was hand-edited.
+        const overrideData = (overridesByAgentMonth[agent.id] && overridesByAgentMonth[agent.id][monthStr]) || {};
+        monthData.push({ ...reportData, ...overrideData });
       }
       nextCache[agent.id] = monthData;
-    }));
+    }
 
     yearSummaryCache = nextCache;
     renderYearSummaryCards();
@@ -1171,21 +1251,25 @@ async function loadYearSummary() {
   }
 }
 
-function applyYearStatusStyle(el, value) {
-  const v = String(value || '').trim().toLowerCase();
-  if (v === 'passed') {
-    el.style.backgroundColor = '#c6f6d5';
-    el.style.color = '#22543d';
-    el.style.fontWeight = '700';
-  } else if (v === 'failed') {
-    el.style.backgroundColor = '#fed7d7';
-    el.style.color = '#742a2a';
-    el.style.fontWeight = '700';
-  } else {
-    el.style.backgroundColor = '';
-    el.style.color = '';
-    el.style.fontWeight = '';
+// Returns the inline style text for a Year Summary data cell based on its field + value:
+// Avg Call Time Status gets the pass/fail highlight, Total Sale gets the $4,000 threshold highlight.
+function yearCellStyleString(field, value) {
+  if (field === 'avgCallTimeStatus') {
+    const v = String(value || '').trim().toLowerCase();
+    if (v === 'passed') return 'background-color: #c6f6d5; color: #22543d; font-weight: 700;';
+    if (v === 'failed') return 'background-color: #fed7d7; color: #742a2a; font-weight: 700;';
+    return '';
   }
+  if (field === 'totalSale') {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) return '';
+    const numeric = Number(trimmed.replace(/[^0-9.-]/g, ''));
+    if (Number.isNaN(numeric)) return '';
+    return numeric >= YEAR_SUMMARY_SALES_HIGHLIGHT_THRESHOLD
+      ? 'background-color: var(--green); color: var(--green-deep); font-weight: 700;'
+      : 'background-color: var(--red); color: var(--red-deep); font-weight: 700;';
+  }
+  return '';
 }
 
 function renderYearSummaryCards() {
@@ -1197,6 +1281,8 @@ function renderYearSummaryCards() {
     const isEditing = yearSummaryEditMode.has(agent.id);
     const editAttr = isEditing ? ' contenteditable="true"' : '';
     const editCls = isEditing ? ' year-editable' : '';
+    const isProdTeam = agent.role === 'Prod Team';
+    const columns = YEAR_SUMMARY_COLUMNS.filter(c => !(c.hideForProdTeam && isProdTeam));
 
     const cellHTML = (field, monthStr, value, extraStyle = '') =>
       `<td class="year-cell${editCls}" data-agent="${agent.id}" data-month="${monthStr}" data-field="${field}" style="${extraStyle}"${editAttr}>${value ?? ''}</td>`;
@@ -1205,21 +1291,13 @@ function renderYearSummaryCards() {
       const data = monthData[idx] || {};
       const monthStr = `${year}-${String(idx + 1).padStart(2, '0')}`;
 
-      const statusValue = data.avgCallTimeStatus || '';
-      let statusStyle = '';
-      if (statusValue.toLowerCase() === 'passed') statusStyle = 'background-color: #c6f6d5; color: #22543d; font-weight: 700;';
-      else if (statusValue.toLowerCase() === 'failed') statusStyle = 'background-color: #fed7d7; color: #742a2a; font-weight: 700;';
+      const cells = columns.map(col =>
+        cellHTML(col.field, monthStr, data[col.field] || '', yearCellStyleString(col.field, data[col.field]))
+      ).join('');
 
       return `<tr>
         <td><strong>${month}</strong></td>
-        ${cellHTML('avgCallTimeStatus', monthStr, statusValue, statusStyle)}
-        ${cellHTML('avgCallTime', monthStr, data.avgCallTime || '')}
-        ${cellHTML('avgTotalCalls', monthStr, data.avgTotalCalls || '')}
-        ${cellHTML('workingDays', monthStr, data.workingDays || '')}
-        ${cellHTML('paidLeaveDays', monthStr, data.paidLeaveDays || '')}
-        ${cellHTML('absentDays', monthStr, data.absentDays || '')}
-        ${cellHTML('unpaidLeaveDays', monthStr, data.unpaidLeaveDays || '')}
-        ${cellHTML('totalSale', monthStr, data.totalSale || '')}
+        ${cells}
       </tr>`;
     }).join('');
 
@@ -1233,14 +1311,7 @@ function renderYearSummaryCards() {
           <thead>
             <tr>
               <th>Month</th>
-              <th>Avg Call Time Status</th>
-              <th>Daily Avg Call Time</th>
-              <th>Daily Avg Total Calls</th>
-              <th>Working Days</th>
-              <th>Paid Leave Days</th>
-              <th>Absent Days</th>
-              <th>Unpaid Leave Days</th>
-              <th>Total Sale</th>
+              ${columns.map(c => `<th>${c.label}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -1265,28 +1336,33 @@ function renderYearSummaryCards() {
 
   // Editable cell behavior (only present while a card is unlocked)
   document.querySelectorAll('.year-editable').forEach(cell => {
-    cell.addEventListener('blur', (e) => {
-      const agent = e.target.dataset.agent;
+    cell.addEventListener('blur', async (e) => {
+      const agentId = e.target.dataset.agent;
       const month = e.target.dataset.month;
       const field = e.target.dataset.field;
       const value = e.target.textContent.trim();
 
-      const storageKey = `yearSummary_${agent}_${month}`;
-      const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      data[field] = value;
-      localStorage.setItem(storageKey, JSON.stringify(data));
-
-      // Keep the in-memory cache in sync so toggling edit mode off/on reflects the latest edit
+      // Update the in-memory cache immediately so the UI (and toggling edit mode) reflects the edit right away
       const monthIdx = Number(month.split('-')[1]) - 1;
-      if (yearSummaryCache[agent] && yearSummaryCache[agent][monthIdx]) {
-        yearSummaryCache[agent][monthIdx] = { ...yearSummaryCache[agent][monthIdx], [field]: value };
+      if (yearSummaryCache[agentId] && yearSummaryCache[agentId][monthIdx]) {
+        yearSummaryCache[agentId][monthIdx] = { ...yearSummaryCache[agentId][monthIdx], [field]: value };
       }
+      e.target.style.cssText = yearCellStyleString(field, value);
 
-      if (field === 'avgCallTimeStatus') applyYearStatusStyle(e.target, value);
+      // Save to Firestore (not localStorage) so this edit is visible on every device
+      try {
+        await setDoc(doc(db, YEAR_SUMMARY_OVERRIDES_COLLECTION, yearSummaryOverrideDocId(agentId, month)),
+          { agentId, monthStr: month, [field]: value, updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (err) {
+        showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
+      }
     });
 
     cell.addEventListener('input', (e) => {
-      if (e.target.dataset.field === 'avgCallTimeStatus') applyYearStatusStyle(e.target, e.target.textContent.trim());
+      const field = e.target.dataset.field;
+      if (field === 'avgCallTimeStatus' || field === 'totalSale') {
+        e.target.style.cssText = yearCellStyleString(field, e.target.textContent.trim());
+      }
     });
   });
 }
