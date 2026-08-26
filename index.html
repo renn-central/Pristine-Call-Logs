@@ -599,10 +599,11 @@ function renderCallTrend(results) {
 function showMsg(containerId, message, isError=false) {
   $(containerId).innerHTML = message ? `<div class="notice ${isError ? 'error' : ''}">${message}</div>` : '';
 }
-function firebaseErrorMessage(err) {
+function firebaseErrorMessage(err, collectionName) {
   const msg = err?.message || String(err);
   if (msg.includes('Missing or insufficient permissions') || err?.code === 'permission-denied') {
-    return 'Firebase blocked this action: Missing or insufficient permissions. Because this app has no login, your Firestore rules must allow read/write access for the employees and dailyReports collections, or the app cannot save employees or reports.';
+    const target = collectionName ? `the "${collectionName}" collection` : 'this collection';
+    return `Firebase blocked this action: Missing or insufficient permissions. Because this app has no login, your Firestore rules must allow read/write access for ${target}, or the app cannot save this data.`;
   }
   if (msg.includes('Cloud Firestore API') || msg.includes('firestore.googleapis.com') || err?.code === 'failed-precondition') {
     return 'Firestore may not be enabled for this Firebase project yet. In Firebase Console, open Firestore Database and create/enable the database.';
@@ -699,7 +700,7 @@ async function loadEmployees() {
   } catch (err) {
     employees = [];
     renderEmployees();
-    showMsg('employeeMsg', firebaseErrorMessage(err), true);
+    showMsg('employeeMsg', firebaseErrorMessage(err, 'employees'), true);
     return false;
   }
 }
@@ -716,7 +717,7 @@ async function seedDefaults() {
     await loadEmployees();
     showMsg('employeeMsg', 'Default employees loaded successfully.');
   } catch (err) {
-    showMsg('employeeMsg', firebaseErrorMessage(err), true);
+    showMsg('employeeMsg', firebaseErrorMessage(err, 'employees'), true);
   }
 }
 function renderEmployees() {
@@ -802,7 +803,7 @@ $('employeeForm').addEventListener('submit', async (e) => {
     await loadEmployees();
     showMsg('employeeMsg', editId ? 'Employee updated.' : 'Employee saved.');
   } catch (err) {
-    showMsg('employeeMsg', firebaseErrorMessage(err), true);
+    showMsg('employeeMsg', firebaseErrorMessage(err, 'employees'), true);
   }
 });
 $('empCancelEditBtn').addEventListener('click', () => {
@@ -827,7 +828,7 @@ $('employeesTable').addEventListener('click', async (e) => {
     resetEmployeeForm();
     showMsg('employeeMsg', 'Employee removed.');
   } catch (err) {
-    showMsg('employeeMsg', firebaseErrorMessage(err), true);
+    showMsg('employeeMsg', firebaseErrorMessage(err, 'employees'), true);
   }
 });
 
@@ -1110,7 +1111,7 @@ async function loadHistory() {
     renderGroupedTables('eomTablesHistory', historyEomResults, 'eom');
     renderHistory(historyCache);
   } catch (err) {
-    showMsg('historyMsg', firebaseErrorMessage(err), true);
+    showMsg('historyMsg', firebaseErrorMessage(err, 'dailyReports'), true);
   }
 }
 
@@ -1152,7 +1153,7 @@ async function loadYearSummaryOverrides() {
       map[agentId][monthStr] = fields;
     });
   } catch (err) {
-    showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
+    showMsg('yearSummaryMsg', firebaseErrorMessage(err, 'yearSummaryOverrides'), true);
   }
   return map;
 }
@@ -1354,7 +1355,7 @@ function renderYearSummaryCards() {
         await setDoc(doc(db, YEAR_SUMMARY_OVERRIDES_COLLECTION, yearSummaryOverrideDocId(agentId, month)),
           { agentId, monthStr: month, [field]: value, updatedAt: new Date().toISOString() }, { merge: true });
       } catch (err) {
-        showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
+        showMsg('yearSummaryMsg', firebaseErrorMessage(err, 'yearSummaryOverrides'), true);
       }
     });
 
@@ -1798,7 +1799,7 @@ async function loadSalesLeaderboard() {
     renderSalesLeaderboard(weekDates, currentTotals, priorTotals, monthReports);
     showMsg('salesMsg', '');
   } catch (err) {
-    showMsg('salesMsg', firebaseErrorMessage(err), true);
+    showMsg('salesMsg', firebaseErrorMessage(err, 'dailyReports'), true);
   }
 }
 function updateSalesWeekVisibility() {
@@ -1839,7 +1840,7 @@ $('historyTables').addEventListener('click', async (e) => {
       showMsg('historyMsg', `Marked ${markDate} as a No Work Day.`);
       await loadHistory();
     } catch (err) {
-      showMsg('historyMsg', firebaseErrorMessage(err), true);
+      showMsg('historyMsg', firebaseErrorMessage(err, 'dailyReports'), true);
     }
     return;
   }
@@ -1852,7 +1853,7 @@ $('historyTables').addEventListener('click', async (e) => {
     showMsg('historyMsg', `Deleted saved report for ${date}.`);
     await loadHistory();
   } catch (err) {
-    showMsg('historyMsg', firebaseErrorMessage(err), true);
+    showMsg('historyMsg', firebaseErrorMessage(err, 'dailyReports'), true);
   }
 });
 
