@@ -265,6 +265,21 @@
     .agent-year-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
     .agent-year-card h3 { margin: 0; font-size: 18px; color: var(--navy); display: flex; align-items: center; gap: 10px; }
     .agent-year-card .avatar { width: 32px; height: 32px; }
+
+    /* Year Summary - Team Overview (overall + monthly passed/failed) */
+    .year-overview { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); margin-bottom: 22px; }
+    .year-overview h3 { margin: 0 0 16px; font-size: 16px; color: var(--navy); }
+    .year-overview-stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .year-overview-stat { flex: 1; min-width: 150px; background: #f7f9fc; border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; text-align: center; }
+    .year-overview-stat .stat-value { font-size: 30px; font-weight: 800; line-height: 1; }
+    .year-overview-stat.passed .stat-value { color: var(--green-deep); }
+    .year-overview-stat.failed .stat-value { color: var(--red-deep); }
+    .year-overview-stat.rate .stat-value { color: var(--navy); }
+    .year-overview-stat .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 6px; }
+    .year-overview-chart-wrap { overflow-x: auto; }
+    .year-overview-legend { display: flex; gap: 18px; justify-content: center; margin-top: 6px; font-size: 12px; color: var(--muted); }
+    .year-overview-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .year-overview-legend .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     .year-edit-btn { white-space: nowrap; flex-shrink: 0; }
     .year-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .year-table th, .year-table td { padding: 8px; border: 1px solid var(--line); text-align: center; }
@@ -437,6 +452,7 @@
           </div>
           <div id="historyTabYear" class="history-tab-content">
             <div id="yearSummaryMsg"></div>
+            <div id="yearOverview" class="year-overview"></div>
             <div id="yearSummaryCards" class="year-summary-grid"></div>
           </div>
         </div>
@@ -1244,6 +1260,8 @@ function computeEOMForEmployee(reports, emp, extraNames = []) {
   const absentDays = allRows.filter(r => r.dailyStatus === 'Absent').length;
   const paidLeaveDays = allRows.filter(r => r.dailyStatus === 'On Leave').length;
   const unpaidLeaveDays = allRows.filter(r => r.dailyStatus === 'On_Leave').length;
+  const daysPassed = rows.filter(r => r.kpiStatus === 'Passed').length;
+  const daysFailed = rows.filter(r => r.kpiStatus === 'Failed').length;
 
   const avgCallTimeSeconds = workingDays ? rows.reduce((s,r) => s + (r.callTimeSeconds || 0), 0) / workingDays : 0;
   const avgTotalCalls = workingDays ? rows.reduce((s,r) => s + (r.totalCalls || 0), 0) / workingDays : 0;
@@ -1253,7 +1271,7 @@ function computeEOMForEmployee(reports, emp, extraNames = []) {
   const totalSaleAmount = rows.reduce((s, r) => s + (r.sales === 'YES' ? (Number(r.saleAmount) || 0) : 0), 0);
   const salesStatus = emp.role === 'Prod Team' ? 'N/A' : (hasSale ? formatCurrency(totalSaleAmount) : 'No Sale');
   const spiffStatus = emp.role === 'Prod Team' ? 'N/A' : (avgCallTimeStatus === 'Passed' && hasSale ? 'Qualified' : 'Not Qualified');
-  return { ...emp, workingDays, absentDays, paidLeaveDays, unpaidLeaveDays, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, hasSale, totalSaleAmount, spiffStatus };
+  return { ...emp, workingDays, absentDays, paidLeaveDays, unpaidLeaveDays, daysPassed, daysFailed, avgCallTimeSeconds, avgTotalCalls, avgCallTimeStatus, salesStatus, hasSale, totalSaleAmount, spiffStatus };
 }
 function computeEOM(reports) {
   const active = activeEmployees();
@@ -1288,6 +1306,8 @@ const YEAR_SUMMARY_COLUMNS = [
   { field: 'avgCallTimeStatus', label: 'Avg Call Time Status' },
   { field: 'avgCallTime', label: 'Daily Avg Call Time', hideForProdTeam: true },
   { field: 'avgTotalCalls', label: 'Daily Avg Total Calls' },
+  { field: 'daysPassed', label: 'Days Passed' },
+  { field: 'daysFailed', label: 'Days Failed' },
   { field: 'workingDays', label: 'Working Days' },
   { field: 'paidLeaveDays', label: 'Paid Leave Days' },
   { field: 'absentDays', label: 'Absent Days' },
@@ -1297,7 +1317,7 @@ const YEAR_SUMMARY_COLUMNS = [
 let yearSummaryCache = {}; // { [agentId]: [monthData x12] }
 let yearSummaryEditMode = new Set(); // agent ids currently unlocked for editing
 
-const YEAR_SUMMARY_OVERRIDE_FIELDS = ['avgCallTimeStatus', 'avgCallTime', 'avgTotalCalls', 'workingDays', 'paidLeaveDays', 'absentDays', 'unpaidLeaveDays', 'totalSale'];
+const YEAR_SUMMARY_OVERRIDE_FIELDS = ['avgCallTimeStatus', 'avgCallTime', 'avgTotalCalls', 'daysPassed', 'daysFailed', 'workingDays', 'paidLeaveDays', 'absentDays', 'unpaidLeaveDays', 'totalSale'];
 const YEAR_SUMMARY_OVERRIDES_COLLECTION = 'yearSummaryOverrides';
 function yearSummaryOverrideDocId(agentId, monthStr) { return `${agentId}_${monthStr}`; }
 
@@ -1393,6 +1413,8 @@ async function loadYearSummary() {
             avgCallTimeStatus: agentData.avgCallTimeStatus || '',
             avgCallTime: agentData.role === 'Prod Team' ? '' : (agentData.workingDays ? secondsToHMS(agentData.avgCallTimeSeconds) : ''),
             avgTotalCalls: agentData.workingDays ? Math.round(agentData.avgTotalCalls) : '',
+            daysPassed: agentData.daysPassed || '',
+            daysFailed: agentData.daysFailed || '',
             workingDays: agentData.workingDays || '',
             paidLeaveDays: agentData.paidLeaveDays || '',
             absentDays: agentData.absentDays || '',
@@ -1411,6 +1433,7 @@ async function loadYearSummary() {
 
     yearSummaryCache = nextCache;
     renderYearSummaryCards();
+    renderYearOverview();
     showMsg('yearSummaryMsg', '');
   } catch (err) {
     showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
@@ -1435,6 +1458,8 @@ function yearCellStyleString(field, value) {
       ? 'background-color: var(--green); color: var(--green-deep); font-weight: 700;'
       : 'background-color: var(--red); color: var(--red-deep); font-weight: 700;';
   }
+  if (field === 'daysPassed' && String(value ?? '').trim()) return 'background-color: var(--green); color: var(--green-deep); font-weight: 700;';
+  if (field === 'daysFailed' && String(value ?? '').trim()) return 'background-color: var(--red); color: var(--red-deep); font-weight: 700;';
   return '';
 }
 
@@ -1514,6 +1539,7 @@ function renderYearSummaryCards() {
         yearSummaryCache[agentId][monthIdx] = { ...yearSummaryCache[agentId][monthIdx], [field]: value };
       }
       e.target.style.cssText = yearCellStyleString(field, value);
+      if (field === 'daysPassed' || field === 'daysFailed') renderYearOverview();
 
       // Save to Firestore (not localStorage) so this edit is visible on every device
       try {
@@ -1526,11 +1552,87 @@ function renderYearSummaryCards() {
 
     cell.addEventListener('input', (e) => {
       const field = e.target.dataset.field;
-      if (field === 'avgCallTimeStatus' || field === 'totalSale') {
+      if (field === 'avgCallTimeStatus' || field === 'totalSale' || field === 'daysPassed' || field === 'daysFailed') {
         e.target.style.cssText = yearCellStyleString(field, e.target.textContent.trim());
       }
     });
   });
+}
+
+// Team-wide Passed vs Failed totals for the Year Summary overview, built from the same
+// per-agent monthData cache the cards use (daysPassed/daysFailed per month, all active agents).
+function computeYearTeamTotals() {
+  const monthlyTotals = YEAR_SUMMARY_MONTH_LABELS.map((label, idx) => {
+    let passed = 0, failed = 0;
+    Object.values(yearSummaryCache).forEach(monthData => {
+      const d = (monthData && monthData[idx]) || {};
+      passed += Number(d.daysPassed) || 0;
+      failed += Number(d.daysFailed) || 0;
+    });
+    return { label, passed, failed };
+  }).filter(m => m.passed || m.failed); // skip months with no reports yet
+  const totalPassed = monthlyTotals.reduce((s, m) => s + m.passed, 0);
+  const totalFailed = monthlyTotals.reduce((s, m) => s + m.failed, 0);
+  return { monthlyTotals, totalPassed, totalFailed };
+}
+
+// Grouped bar chart (Passed vs Failed side-by-side per month), same inline-SVG approach as buildCallTrendSVG.
+function buildYearOverviewSVG(monthlyTotals) {
+  const barW = 16, barGap = 4, groupGap = 22, chartH = 110, padTop = 20, padBottom = 24, padLeft = 8, padRight = 8;
+  const maxVal = Math.max(1, ...monthlyTotals.flatMap(m => [m.passed, m.failed]));
+  const groupW = barW * 2 + barGap;
+  const width = padLeft + padRight + monthlyTotals.length * (groupW + groupGap) - groupGap;
+  const height = padTop + chartH + padBottom;
+  const bar = (x, val, color) => {
+    const h = val ? Math.max((val / maxVal) * chartH, 4) : 2;
+    const y = padTop + (chartH - h);
+    const fill = val ? color : 'var(--line)';
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${fill}"><title>${val}</title></rect>
+      <text x="${x + barW / 2}" y="${y - 4}" font-size="10" font-weight="700" text-anchor="middle" fill="var(--ink)">${val}</text>`;
+  };
+  const groups = monthlyTotals.map((m, i) => {
+    const gx = padLeft + i * (groupW + groupGap);
+    const passedBar = bar(gx, m.passed, 'var(--green-deep)');
+    const failedBar = bar(gx + barW + barGap, m.failed, 'var(--red-deep)');
+    const label = `<text x="${gx + groupW / 2}" y="${padTop + chartH + 16}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--muted)">${m.label}</text>`;
+    return passedBar + failedBar + label;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${groups}</svg>`;
+}
+
+function renderYearOverview() {
+  const container = $('yearOverview');
+  if (!container) return;
+  const { monthlyTotals, totalPassed, totalFailed } = computeYearTeamTotals();
+  const totalDays = totalPassed + totalFailed;
+  const passRate = totalDays ? Math.round((totalPassed / totalDays) * 100) : 0;
+
+  if (!monthlyTotals.length) {
+    container.innerHTML = '<h3>Team Overview — Passed vs Failed</h3><div class="notice">No KPI data yet for this period.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <h3>Team Overview — Passed vs Failed (${monthlyTotals[0].label}–${monthlyTotals[monthlyTotals.length - 1].label})</h3>
+    <div class="year-overview-stats">
+      <div class="year-overview-stat passed">
+        <div class="stat-value">${totalPassed}</div>
+        <div class="stat-label">Total Days Passed</div>
+      </div>
+      <div class="year-overview-stat failed">
+        <div class="stat-value">${totalFailed}</div>
+        <div class="stat-label">Total Days Failed</div>
+      </div>
+      <div class="year-overview-stat rate">
+        <div class="stat-value">${passRate}%</div>
+        <div class="stat-label">Pass Rate</div>
+      </div>
+    </div>
+    <div class="year-overview-chart-wrap">${buildYearOverviewSVG(monthlyTotals)}</div>
+    <div class="year-overview-legend">
+      <span><span class="legend-dot" style="background:var(--green-deep)"></span>Passed</span>
+      <span><span class="legend-dot" style="background:var(--red-deep)"></span>Failed</span>
+    </div>`;
 }
 
 function localDateISO(d) {
