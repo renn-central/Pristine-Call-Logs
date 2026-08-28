@@ -306,6 +306,19 @@
     .agent-stats-overview h4 { margin: 0 0 20px 0; font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.03em; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
     .stat-card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 14px; text-align: center; }
+    .hourly-dial-section { background: #fbfcfe; border: 1px solid var(--line); border-radius: 12px; padding: 22px; margin-top: 20px; }
+    .hourly-dial-section h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.03em; }
+    .hourly-dial-section .hourly-dial-subtext { margin: 0 0 16px 0; font-size: 11px; color: var(--muted); }
+    .hourly-dial-chart-wrap { overflow-x: auto; margin-bottom: 18px; }
+    .hourly-insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .hourly-insight-card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+    .hourly-insight-card .insight-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: block; margin-bottom: 4px; }
+    .hourly-insight-card .insight-value { font-size: 16px; font-weight: 800; color: var(--navy); display: block; }
+    .hourly-insight-card.peak { border-color: var(--green-deep); }
+    .hourly-insight-card.peak .insight-value { color: var(--green-deep); }
+    .hourly-insight-card.low { border-color: var(--red-deep); }
+    .hourly-insight-card.low .insight-value { color: var(--red-deep); }
+    .hourly-insight-card .insight-subtext { font-size: 11px; color: var(--muted); margin-top: 2px; display: block; }
     .stat-card.highlight-pass { border-color: var(--green-deep); background: rgba(22, 131, 58, 0.03); }
     .stat-card.highlight-fail { border-color: var(--red-deep); background: rgba(188, 47, 47, 0.03); }
     .stat-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px; }
@@ -489,6 +502,7 @@
             <div id="yearSummaryMsg"></div>
             <div id="yearSummaryCards" class="year-summary-grid"></div>
             <div id="yearOverview" class="year-overview"></div>
+            <div id="hourlyTeamOverview" class="year-overview"></div>
           </div>
         </div>
       </section>
@@ -706,6 +720,85 @@ function renderCallTrend(results) {
       <tbody>${rows}</tbody>
     </table></div><br>`;
   }).join('') || '<div class="notice">No data to show yet.</div>';
+}
+// ---- Hourly Dial Activity (Year Summary) ----
+// One-time backfill: Jan 5 - Aug 21, 2026, sourced from per-agent Zoom call log exports.
+// Hardcoded because the tracker doesn't capture hourly activity trend data before Aug 2026.
+// Hour buckets run 11AM-7PM (start-of-hour labels), matching what was requested for the report.
+const HOURLY_DIAL_DATA = {"meta":{"period":"Jan 5 - Aug 21, 2026","hours":[11,12,13,14,15,16,17,18,19]},"agents":{"Aisiah Vance":{"hourAvg":[3.73,2.88,2.28,1.57,1.36,0.99,0.48,0.46,0.27],"peakHour":{"hour":11,"avg":3.73},"lowHour":{"hour":19,"avg":0.27},"topDay":{"day":"Thursday","avg":20.09}},"Emily Taylor":{"hourAvg":[3.67,5.7,6.08,5.44,3.28,3.91,4.77,4.22,1.61],"peakHour":{"hour":13,"avg":6.08},"lowHour":{"hour":19,"avg":1.61},"topDay":{"day":"Wednesday","avg":52.61}},"Emma Green":{"hourAvg":[7.54,11.64,12.79,10.18,5.67,5.27,8.64,9.22,6.13],"peakHour":{"hour":13,"avg":12.79},"lowHour":{"hour":16,"avg":5.27},"topDay":{"day":"Thursday","avg":111.25}},"Ivy Taylor":{"hourAvg":[5.59,5.05,4.34,3.3,2.23,2.37,1.67,0.8,2.81],"peakHour":{"hour":11,"avg":5.59},"lowHour":{"hour":18,"avg":0.8},"topDay":{"day":"Wednesday","avg":33.94}},"Kheyla Jones":{"hourAvg":[7.03,13.12,12.13,11.42,2.43,9.42,16.99,11.82,0.88],"peakHour":{"hour":17,"avg":16.99},"lowHour":{"hour":19,"avg":0.88},"topDay":{"day":"Wednesday","avg":103.75}},"Kim Anderson":{"hourAvg":[3.49,3.81,3.18,3.15,2.41,2.66,1.77,0.69,0.38],"peakHour":{"hour":12,"avg":3.81},"lowHour":{"hour":19,"avg":0.38},"topDay":{"day":"Wednesday","avg":33.25}},"Kris Johnson":{"hourAvg":[9.25,9.33,7.73,5.47,5.2,4.8,3.12,3.1,1.26],"peakHour":{"hour":12,"avg":9.33},"lowHour":{"hour":19,"avg":1.26},"topDay":{"day":"Wednesday","avg":53.19}},"Lauren Reed":{"hourAvg":[5.02,3.73,2.04,1.22,1.38,1.21,1.11,0.43,0.15],"peakHour":{"hour":11,"avg":5.02},"lowHour":{"hour":19,"avg":0.15},"topDay":{"day":"Monday","avg":18.65}},"Shey Morgan":{"hourAvg":[2.07,5.79,8.4,8.96,1.03,3.09,7.6,11.88,8.09],"peakHour":{"hour":18,"avg":11.88},"lowHour":{"hour":15,"avg":1.03},"topDay":{"day":"Thursday","avg":63.5}},"Victoria Fox":{"hourAvg":[3.82,2.76,6.18,2.65,4.12,3.82,3.88,1.35,0.35],"peakHour":{"hour":13,"avg":6.18},"lowHour":{"hour":19,"avg":0.35},"topDay":{"day":"Wednesday","avg":32.0}}},"team":{"hourAvg":[4.95,5.95,5.75,4.9,2.66,3.27,3.99,3.86,2.21],"peakHour":{"hour":12,"avg":5.95},"lowHour":{"hour":19,"avg":2.21},"topDay":{"day":"Thursday","avg":48.07}}};
+
+// Source data is recorded in US Eastern Time; the tracker displays hours converted to
+// Philippines local time (EST/EDT + 12h), since that's the team's actual working timezone.
+function hourlyDialHourLabel(estHour) {
+  const h = (estHour + 12) % 24;
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${period}`;
+}
+function buildHourlyDialSVG(hourAvg, hours) {
+  const barW = 40, gap = 14, chartH = 110, padTop = 22, padBottom = 20, padLeft = 6, padRight = 6;
+  const maxVal = Math.max(1, ...hourAvg);
+  const width = padLeft + padRight + hourAvg.length * (barW + gap) - gap;
+  const height = padTop + chartH + padBottom;
+  const bars = hourAvg.map((val, i) => {
+    const x = padLeft + i * (barW + gap);
+    const label = hourlyDialHourLabel(hours[i]);
+    if (!val) {
+      const y = padTop + chartH - 2;
+      return `<rect x="${x}" y="${y}" width="${barW}" height="2" rx="1" fill="var(--line)"><title>${label}: 0 calls/day</title></rect>
+        <text x="${x + barW / 2}" y="${padTop + chartH + 14}" font-size="11" text-anchor="middle" fill="var(--muted)">${label}</text>`;
+    }
+    const barH = Math.max((val / maxVal) * chartH, 6);
+    const y = padTop + (chartH - barH);
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="var(--blue-deep)"><title>${label}: ${val} calls/day avg</title></rect>
+      <text x="${x + barW / 2}" y="${y - 6}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--navy)">${val}</text>
+      <text x="${x + barW / 2}" y="${padTop + chartH + 14}" font-size="11" text-anchor="middle" fill="var(--muted)">${label}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+}
+function renderHourlyInsightsHTML(entry) {
+  return `<div class="hourly-insights-grid">
+    <div class="hourly-insight-card peak">
+      <span class="insight-label">Peak Hour</span>
+      <span class="insight-value">${hourlyDialHourLabel(entry.peakHour.hour)}</span>
+      <span class="insight-subtext">${entry.peakHour.avg} calls/day avg</span>
+    </div>
+    <div class="hourly-insight-card low">
+      <span class="insight-label">Low-Dial Hour</span>
+      <span class="insight-value">${hourlyDialHourLabel(entry.lowHour.hour)}</span>
+      <span class="insight-subtext">${entry.lowHour.avg} calls/day avg</span>
+    </div>
+    <div class="hourly-insight-card">
+      <span class="insight-label">Highest Volume Day</span>
+      <span class="insight-value">${entry.topDay.day}</span>
+      <span class="insight-subtext">${entry.topDay.avg} calls/day avg</span>
+    </div>
+  </div>`;
+}
+function renderAgentHourlyDialSection(agentName) {
+  const entry = HOURLY_DIAL_DATA.agents[agentName];
+  if (!entry) return '';
+  return `<div class="hourly-dial-section">
+    <h4>🕐 Hourly Dial Activity</h4>
+    <p class="hourly-dial-subtext">Avg calls / working day by hour (Philippines time) &middot; ${HOURLY_DIAL_DATA.meta.period}</p>
+    <div class="hourly-dial-chart-wrap">${buildHourlyDialSVG(entry.hourAvg, HOURLY_DIAL_DATA.meta.hours)}</div>
+    ${renderHourlyInsightsHTML(entry)}
+  </div>`;
+}
+function renderHourlyTeamOverview() {
+  const container = $('hourlyTeamOverview');
+  if (!container) return;
+  const team = HOURLY_DIAL_DATA.team;
+  container.innerHTML = `
+    <h3>🕐 Team Hourly Dial Activity &middot; Philippines Time (${HOURLY_DIAL_DATA.meta.period})</h3>
+    <div class="hourly-dial-chart-wrap">${buildHourlyDialSVG(team.hourAvg, HOURLY_DIAL_DATA.meta.hours)}</div>
+    ${renderHourlyInsightsHTML(team)}
+    <p class="hourly-dial-subtext" style="margin-top:14px">
+      Team-wide, dial activity peaks around ${hourlyDialHourLabel(team.peakHour.hour)} and tapers off sharply going into
+      ${hourlyDialHourLabel(team.lowHour.hour)}. Several agents also show a shared dip around 3PM, close enough across
+      different agents that it looks like a common break window rather than individual behavior. ${team.topDay.day} is
+      the highest-volume weekday across the team.
+    </p>`;
 }
 function showMsg(containerId, message, isError=false) {
   $(containerId).innerHTML = message ? `<div class="notice ${isError ? 'error' : ''}">${message}</div>` : '';
@@ -1469,6 +1562,7 @@ async function loadYearSummary() {
     yearSummaryCache = nextCache;
     renderYearSummaryCards();
     renderYearOverview();
+    renderHourlyTeamOverview();
     showMsg('yearSummaryMsg', '');
   } catch (err) {
     showMsg('yearSummaryMsg', firebaseErrorMessage(err), true);
@@ -1660,6 +1754,8 @@ function renderYearSummaryCards() {
           </div>
         </div>
       </div>
+
+      ${renderAgentHourlyDialSection(agent.name)}
     </div>`;
   }).join('');
 
