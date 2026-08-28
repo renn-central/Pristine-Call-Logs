@@ -284,12 +284,47 @@
     .year-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .year-table th, .year-table td { padding: 8px; border: 1px solid var(--line); text-align: center; }
     .year-table th { background: #f0f6ff; color: var(--navy); font-weight: 700; }
-    .year-table td:first-child, .year-table th:first-child { text-align: left; width: 70px; }
+    .year-table td:first-child, .year-table th:first-child { text-align: center; width: 70px; }
     .year-table tbody tr:hover { background: #f8fbff; }
     .year-editable { background: #fffbf0; cursor: text; min-width: 60px; padding: 6px 4px; outline: 1px dashed #ffc966; border-radius: 3px; }
     .year-editable:focus { outline: 2px solid var(--blue-deep); background: #fff9e6; }
     .year-editable:empty::before { content: "Click to edit"; color: #ccc; font-size: 11px; font-style: italic; }
     .year-editable[contenteditable]:hover { background: #fff9e6; }
+
+    /* Improved Year Summary - Two Column Layout */
+    .year-card-tables-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: 28px; }
+    .year-table-section h4 { font-size: 14px; font-weight: 700; margin: 0 0 14px 0; color: var(--navy); text-transform: uppercase; letter-spacing: 0.03em; }
+    .year-table-wrapper { border: 2px solid #000; border-radius: 12px; overflow: hidden; background: white; }
+    .year-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .year-table th, .year-table td { padding: 12px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
+    .year-table th { background: var(--navy); color: white; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .year-table tbody tr:last-child td { border-bottom: none; }
+    .year-table tbody tr:hover td { background: #f8fbff; }
+
+    /* Stats Overview Section */
+    .agent-stats-overview { background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%); border: 1px solid var(--blue); border-radius: 12px; padding: 24px; margin-top: 28px; }
+    .agent-stats-overview h4 { margin: 0 0 20px 0; font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.03em; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+    .stat-card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 14px; text-align: center; }
+    .stat-card.highlight-pass { border-color: var(--green-deep); background: rgba(22, 131, 58, 0.03); }
+    .stat-card.highlight-fail { border-color: var(--red-deep); background: rgba(188, 47, 47, 0.03); }
+    .stat-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px; }
+    .stat-value { display: block; font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 2px; }
+    .stat-card.highlight-pass .stat-value { color: var(--green-deep); }
+    .stat-card.highlight-fail .stat-value { color: var(--red-deep); }
+    .stat-subtext { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+
+    @media (max-width: 1200px) {
+      .year-card-tables-wrapper { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
 
     @media (max-width: 700px) { .daily-card { width: 100%; flex-basis: 100%; } }
     @media (max-width: 980px) {
@@ -452,8 +487,8 @@
           </div>
           <div id="historyTabYear" class="history-tab-content">
             <div id="yearSummaryMsg"></div>
-            <div id="yearOverview" class="year-overview"></div>
             <div id="yearSummaryCards" class="year-summary-grid"></div>
+            <div id="yearOverview" class="year-overview"></div>
           </div>
         </div>
       </section>
@@ -1473,16 +1508,34 @@ function renderYearSummaryCards() {
     const editAttr = isEditing ? ' contenteditable="true"' : '';
     const editCls = isEditing ? ' year-editable' : '';
     const isProdTeam = agent.role === 'Prod Team';
-    const columns = YEAR_SUMMARY_COLUMNS.filter(c => !(c.hideForProdTeam && isProdTeam));
+
+    // Call Logs columns
+    const callLogsColumns = [
+      { field: 'avgCallTimeStatus', label: 'Avg Call Time Status' },
+      { field: 'avgCallTime', label: 'Daily Avg Call Time', hideForProdTeam: true },
+      { field: 'avgTotalCalls', label: 'Daily Avg Calls' },
+      { field: 'daysPassed', label: 'Days Passed' },
+      { field: 'daysFailed', label: 'Days Failed' },
+      { field: 'totalSale', label: 'Total Sales', hideForProdTeam: true }
+    ].filter(c => !(c.hideForProdTeam && isProdTeam));
+
+    // Attendance columns
+    const attendanceColumns = [
+      { field: 'workingDays', label: 'Days Worked' },
+      { field: 'paidLeaveDays', label: 'Paid Leave Days' },
+      { field: 'absentDays', label: 'Absent Days' },
+      { field: 'unpaidLeaveDays', label: 'Unpaid Leave Days' }
+    ];
 
     const cellHTML = (field, monthStr, value, extraStyle = '') =>
       `<td class="year-cell${editCls}" data-agent="${agent.id}" data-month="${monthStr}" data-field="${field}" style="${extraStyle}"${editAttr}>${value ?? ''}</td>`;
 
-    const rows = YEAR_SUMMARY_MONTH_LABELS.map((month, idx) => {
+    // Call Logs Table Rows
+    const callLogsRows = YEAR_SUMMARY_MONTH_LABELS.map((month, idx) => {
       const data = monthData[idx] || {};
       const monthStr = `${year}-${String(idx + 1).padStart(2, '0')}`;
 
-      const cells = columns.map(col =>
+      const cells = callLogsColumns.map(col =>
         cellHTML(col.field, monthStr, data[col.field] || '', yearCellStyleString(col.field, data[col.field]))
       ).join('');
 
@@ -1492,23 +1545,120 @@ function renderYearSummaryCards() {
       </tr>`;
     }).join('');
 
+    // Attendance Table Rows
+    const attendanceRows = YEAR_SUMMARY_MONTH_LABELS.map((month, idx) => {
+      const data = monthData[idx] || {};
+      const monthStr = `${year}-${String(idx + 1).padStart(2, '0')}`;
+
+      const cells = attendanceColumns.map(col =>
+        cellHTML(col.field, monthStr, data[col.field] || '', '')
+      ).join('');
+
+      return `<tr>
+        <td><strong>${month}</strong></td>
+        ${cells}
+      </tr>`;
+    }).join('');
+
+    // Calculate stats
+    const totalMonthsPassed = monthData.filter(m => String(m.avgCallTimeStatus || '').toLowerCase() === 'passed').length;
+    const totalMonthsFailed = monthData.filter(m => String(m.avgCallTimeStatus || '').toLowerCase() === 'failed').length;
+    const totalDaysPassed = monthData.reduce((sum, m) => sum + (Number(m.daysPassed) || 0), 0);
+    const totalDaysFailed = monthData.reduce((sum, m) => sum + (Number(m.daysFailed) || 0), 0);
+    const totalDays = totalDaysPassed + totalDaysFailed;
+    const passingRate = totalDays > 0 ? Math.round((totalDaysPassed / totalDays) * 100) : 0;
+    
+    // Average sales per month
+    let totalSales = 0;
+    let monthsWithSales = 0;
+    monthData.forEach(m => {
+      if (m.totalSale) {
+        const saleNum = parseFloat(String(m.totalSale).replace(/[^0-9.]/g, '')) || 0;
+        if (saleNum > 0) {
+          totalSales += saleNum;
+          monthsWithSales++;
+        }
+      }
+    });
+    const avgSalesPerMonth = monthsWithSales > 0 ? (totalSales / monthsWithSales).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '$0';
+
     return `<div class="agent-year-card">
       <div class="agent-year-card-header">
         <h3>${avatarHTML(agent)} ${agent.name}</h3>
         <button type="button" class="secondary year-edit-btn" data-toggle-edit="${agent.id}">${isEditing ? '✅ Done' : '✏️ Edit'}</button>
       </div>
-      <div style="overflow:auto;">
-        <table class="year-table">
-          <thead>
-            <tr>
-              <th>Month</th>
-              ${columns.map(c => `<th>${c.label}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
+      
+      <!-- Two Column Tables: Call Logs and Attendance -->
+      <div class="year-card-tables-wrapper">
+        <div class="year-table-section">
+          <h4>📞 Call Logs</h4>
+          <div class="year-table-wrapper">
+            <table class="year-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  ${callLogsColumns.map(c => `<th>${c.label}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${callLogsRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="year-table-section">
+          <h4>📅 Attendance</h4>
+          <div class="year-table-wrapper">
+            <table class="year-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  ${attendanceColumns.map(c => `<th>${c.label}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${attendanceRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Overview -->
+      <div class="agent-stats-overview">
+        <h4>📊 Performance Summary</h4>
+        <div class="stats-grid">
+          <div class="stat-card ${totalMonthsPassed >= totalMonthsFailed ? 'highlight-pass' : ''}">
+            <span class="stat-label">Months Passed</span>
+            <span class="stat-value">${totalMonthsPassed}</span>
+            <span class="stat-subtext">vs ${totalMonthsFailed} Failed</span>
+          </div>
+          
+          <div class="stat-card highlight-pass">
+            <span class="stat-label">Total Days Passed</span>
+            <span class="stat-value">${totalDaysPassed}</span>
+            <span class="stat-subtext">Days</span>
+          </div>
+          
+          <div class="stat-card highlight-fail">
+            <span class="stat-label">Total Days Failed</span>
+            <span class="stat-value">${totalDaysFailed}</span>
+            <span class="stat-subtext">Days</span>
+          </div>
+          
+          <div class="stat-card">
+            <span class="stat-label">Passing Rate</span>
+            <span class="stat-value">${passingRate}%</span>
+            <span class="stat-subtext">Based on Days Passed/Failed</span>
+          </div>
+          
+          <div class="stat-card">
+            <span class="stat-label">Avg Sales / Month</span>
+            <span class="stat-value">${avgSalesPerMonth}</span>
+            <span class="stat-subtext">Average across period</span>
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('');
